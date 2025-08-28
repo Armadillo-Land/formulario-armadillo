@@ -18,6 +18,14 @@
   <h2>Formulario de Registro Personal</h2>
   <form id="personalForm">
     <input type="hidden" name="per_sper_id" value="1">
+    
+    <label>Foto personal* <input type="file" id="per_foto_input" name="per_foto" accept="image/*" required></label>
+    <label>RUT (PDF o imagen)* <input type="file" id="per_rut_input" name="per_rut" accept="application/pdf,image/*" required></label>
+
+
+
+
+
     <label>Cédula* 
       <input type="text" name="per_cedula" maxlength="20" required>
     </label>
@@ -89,8 +97,7 @@
       <select name="per_perf_id" id="perfilamientoSelect" required></select>
     </label>
 
-    <label>Foto personal* <input type="file" id="per_foto_input" name="per_foto" accept="image/*" required></label>
-    <label>RUT (PDF o imagen)* <input type="file" id="per_rut_input" name="per_rut" accept="application/pdf,image/*" required></label>
+    
 
 
     <button type="submit">Registrar</button>
