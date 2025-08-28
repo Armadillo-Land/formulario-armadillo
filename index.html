@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Formulario Personal</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+    form { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 10px; }
+    label { display: block; margin-top: 15px; }
+    input, select { width: 100%; padding: 8px; margin-top: 5px; }
+    button { margin-top: 20px; padding: 10px 20px; background: #0077cc; color: #fff; border: none; cursor: pointer; }
+    button:hover { background: #005fa3; }
+  </style>
+</head>
+<body>
+  <h2>Formulario de Registro Personal</h2>
+  <form id="personalForm">
+    <input type="hidden" name="per_sper_id" value="1">
+    <label>Cédula* 
+      <input type="text" name="per_cedula" maxlength="20" required>
+    </label>
+
+    <label>Primer Nombre* 
+      <input type="text" name="per_primer_nombre" maxlength="50" required>
+    </label>
+
+    <label>Segundo Nombre 
+      <input type="text" name="per_segundo_nombre" maxlength="50">
+    </label>
+
+    <label>Primer Apellido* 
+      <input type="text" name="per_primer_apellido" maxlength="50" required>
+    </label>
+
+    <label>Segundo Apellido 
+      <input type="text" name="per_segundo_apellido" maxlength="50">
+    </label>
+
+    <label>Teléfono* 
+      <input type="text" name="per_telefono" maxlength="13" required>
+    </label>
+
+    <label>Fecha Nacimiento* 
+      <input type="date" name="per_fecha_nacimiento" id="per_fecha_nacimiento" required>
+    </label>
+
+    <label>Correo* 
+      <input type="email" name="per_correo" maxlength="100" required>
+    </label>
+
+    <label>Dirección de residencia* 
+      <input type="text" name="per_direccion_residencia" maxlength="100" required>
+    </label>
+
+    <label>Nombre contacto emergencia* 
+      <input type="text" name="per_nombre_emergencia" maxlength="100" required>
+    </label>
+
+    <label>Teléfono contacto emergencia* 
+      <input type="text" name="per_telefono_contacto_emergencia" maxlength="13" required>
+    </label>
+
+    <label>Contraseña* 
+      <input type="password" name="per_contraseña" maxlength="10" >
+    </label>
+
+    <label>Género
+      <select name="per_genero_id" id="generoSelect" required></select>
+    </label>
+    <label>Ciudad
+      <select name="per_ciudad_id" id="ciudadSelect" required></select>
+    </label>
+    <label>EPS
+      <select name="per_eps_id" id="epsSelect" required></select>
+    </label>
+    <label>Tipo de alimentación
+      <select name="per_ali_id" id="alimentacionSelect" required></select>
+    </label>
+    <label>Banco
+      <select name="per_bper_id" id="bancoSelect" required></select>
+    </label>
+    <label>Perfilamiento
+      <select name="per_perf_id" id="perfilamientoSelect" required></select>
+    </label>
+
+    <label>Foto personal* <input type="file" id="per_foto_input" name="per_foto" accept="image/*" required></label>
+    <label>RUT (PDF o imagen)* <input type="file" id="per_rut_input" name="per_rut" accept="application/pdf,image/*" required></label>
+
+
+    <button type="submit">Registrar</button>
+  </form>
+
+
+<script>
+  const SUPABASE_URL = 'https://nvphwlaraabbqvqwtcpi.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52cGh3bGFyYWFiYnF2cXd0Y3BpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMjI2NjgsImV4cCI6MjA2NzU5ODY2OH0.q327BC_jpQf2-vCPt8haW3uatXWS8dveHAEQtszqOVc';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const camposSelect = {
+    genero:        { id: 'gen_id', texto: 'gen' },
+    ciudad:        { id: 'ciu_id', texto: 'ciu' },
+    eps:           { id: 'eps_id', texto: 'eps' },
+    tipo_alimentacion: { id: 'ali_id', texto: 'ali_tipo_alimentacion' },
+    banco:         { id: 'ban_id', texto: 'ban_banco' },
+    perfilamiento: { id: 'perf_id', texto: 'perf_tipo_perfil' }
+  };
+
+  async function subirArchivo(bucket, archivo, nombre) {
+    const { data, error } = await supabaseClient.storage
+      .from(bucket)
+      .upload(nombre, archivo, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (error) {
+      console.error(`Error subiendo a ${bucket}:`, error.message);
+      return null;
+    }
+
+    const url = supabaseClient.storage.from(bucket).getPublicUrl(nombre).data.publicUrl;
+    return url;
+  }
+
+  async function cargarOpciones(tabla, selectId) {
+    const config = camposSelect[tabla];
+    if (!config) return;
+
+    const { id, texto } = config;
+    const { data, error } = await supabaseClient.from(tabla).select(`${id}, ${texto}`);
+    const select = document.getElementById(selectId);
+
+    if (error) {
+      console.error(`Error cargando ${tabla}:`, error.message);
+      return;
+    }
+
+    select.innerHTML = `<option value="">-- Seleccione --</option>`;
+    data.forEach(item => {
+      select.innerHTML += `<option value="${item[id]}">${item[texto]}</option>`;
+    });
+  }
+
+  async function inicializarSelects() {
+    await cargarOpciones('genero', 'generoSelect');
+    await cargarOpciones('ciudad', 'ciudadSelect');
+    await cargarOpciones('eps', 'epsSelect');
+    await cargarOpciones('tipo_alimentacion', 'alimentacionSelect');
+    await cargarOpciones('banco', 'bancoSelect');
+    await cargarOpciones('perfilamiento', 'perfilamientoSelect');
+  }
+
+  async function convertirArchivoABase64(input) {
+    return new Promise((resolve, reject) => {
+      const file = input.files[0];
+      if (!file) return resolve(null);
+
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await inicializarSelects();
+    document.getElementById('personalForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const fechaNacimientoInput = document.getElementById('per_fecha_nacimiento');
+      const fechaNacimiento = new Date(fechaNacimientoInput.value);
+      const hoy = new Date();
+
+      if (fechaNacimiento > hoy) {
+        alert("La fecha de nacimiento no puede ser en el futuro.");
+        return;
+      }
+
+      const edad = hoy.getFullYear() - fechaNacimiento.getFullYear();
+      const mes = hoy.getMonth() - fechaNacimiento.getMonth();
+      const dia = hoy.getDate() - fechaNacimiento.getDate();
+      const edadFinal = mes < 0 || (mes === 0 && dia < 0) ? edad - 1 : edad;
+
+      if (edadFinal < 18) {
+        alert("Debe ser mayor de edad (mínimo 18 años).");
+        return;
+      }
+
+      const form = e.target;
+      const formData = new FormData(form);
+
+      const per_foto_file = formData.get('per_foto');
+      const per_rut_file = formData.get('per_rut');
+
+      const timestamp = Date.now();
+      const fotoNombre = `foto_${timestamp}_${per_foto_file.name}`;
+      const rutNombre = `rut_${timestamp}_${per_rut_file.name}`;
+
+      const per_foto_url = await subirArchivo('personalfiles', per_foto_file, fotoNombre);
+      const per_rut_url = await subirArchivo('personalfiles', per_rut_file, rutNombre);
+
+      if (!per_foto_url || !per_rut_url) {
+        alert('❌ Error al subir los archivos');
+        return;
+      }
+
+      const datos = Object.fromEntries(formData.entries());
+
+      // Reemplaza los archivos por sus URLs
+      datos.per_foto = per_foto_url;
+      datos.per_rut = per_rut_url;
+
+      // Elimina los objetos File de los datos
+      delete datos.per_foto_file;
+      delete datos.per_rut_file;
+
+      // Convierte cadenas vacías a null
+      for (let key in datos) {
+        if (datos[key] === '') datos[key] = null;
+      }
+
+      const { error } = await supabaseClient.from('personal').insert([datos]);
+
+      if (error) {
+        alert('❌ Error al guardar: ' + error.message);
+      } else {
+        alert('✅ Registro guardado correctamente');
+        form.reset();
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
