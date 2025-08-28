@@ -19,15 +19,18 @@
   <form id="personalForm">
     <input type="hidden" name="per_sper_id" value="1">
     
-    <label>Foto personal* <input type="file" id="per_foto_input" name="per_foto" accept="image/*" required></label>
-    <label>RUT (PDF o imagen)* <input type="file" id="per_rut_input" name="per_rut" accept="application/pdf,image/*" required></label>
+    <label>Foto personal* <input type="file" id="per_foto_input" name="per_pdf_foto" accept="image/*" required></label>
+    <label>Imagen Cedula* <input type="file" id="per_rut_input" name="per_pdf_cedula" accept="application/pdf,image/*" required></label>
+    <label>RUT (PDF)* <input type="file" id="per_rut_input" name="per_pdf_rut" accept="application/pdf,image/*" required></label>
+    <label>Comprobante Banco* <input type="file" id="per_foto_input" name="per_pdf_comprobante_banco" accept="image/*" required></label>
+    <label>Hoja de Vida* <input type="file" id="per_foto_input" name="per_pdf_hoja_vida" accept="image/*" required></label>
 
-
-
-
+    <label>Tipo Documento*
+      <select name="per_tipo_doc" id="tipo_documento_Select" required></select>
+    </label>
 
     <label>Cédula* 
-      <input type="text" name="per_cedula" maxlength="20" required>
+      <input type="text" name="per_num_cedula" maxlength="20" required>
     </label>
 
     <label>Primer Nombre* 
@@ -46,12 +49,20 @@
       <input type="text" name="per_segundo_apellido" maxlength="50">
     </label>
 
-    <label>Teléfono Llamada 
+    <label>Teléfono Llamada*
       <input type="text" name="per_telefono_llamada" maxlength="13" required>
     </label>
 
-    <label>Teléfono* 
-      <input type="text" name="per_telefono" maxlength="13" required>
+    <label>Teléfono WhatsApp* 
+      <input type="text" name="per_telefono_whatsapp" maxlength="13" required>
+    </label>
+
+    <label>Género
+      <select name="per_genero_id" id="generoSelect" required></select>
+    </label>
+    
+    <label>EPS
+      <select name="per_eps_id" id="epsSelect" required></select>
     </label>
 
     <label>Fecha Nacimiento* 
@@ -66,6 +77,46 @@
       <input type="text" name="per_direccion_residencia" maxlength="100" required>
     </label>
 
+    <label>Ciudad
+      <select name="per_ciudad_id" id="ciudadSelect" required></select>
+    </label>
+
+    <label>Localidad o Barrio* 
+      <input type="text" name="per_localidad_barrio" maxlength="100" required>
+    </label>
+
+    <label>Tipo de alimentación
+      <select name="per_ali_id" id="alimentacionSelect" required></select>
+    </label>
+
+    <label>Tipo de Sangre
+      <select name="per_tipo_sangre" id="tiposangreSelect" required></select>
+    </label>
+
+    <label>Tipo de Sangre
+      <select name="per_tipo_sangre" id="tiposangreSelect" required></select>
+    </label>
+
+    <label>Alergias* 
+      <input type="text" name="per_alergias" maxlength="100" required>
+    </label>
+
+    <label>Estatura* 
+      <input type="text" name="per_estatura" maxlength="100" required>
+    </label>
+
+    <label>Talla Camiseta
+      <select name="per_talla_camiseta" id="TallaCamisetaSelect" required></select>
+    </label>
+
+    <label>Talla de Pantalon
+      <select name="per_talla_pantalon" id="TallaPantalonSelect" required></select>
+    </label>
+
+    <label>Talla de Zapatos
+      <select name="per_talla_zapatos" id="TallaZapatosSelect" required></select>
+    </label>
+ 
     <label>Nombre contacto emergencia* 
       <input type="text" name="per_nombre_emergencia" maxlength="100" required>
     </label>
@@ -74,32 +125,18 @@
       <input type="text" name="per_telefono_contacto_emergencia" maxlength="13" required>
     </label>
 
-    <label>Contraseña* 
-      <input type="password" name="per_contraseña" maxlength="10" >
-    </label>
-
-    <label>Género
-      <select name="per_genero_id" id="generoSelect" required></select>
-    </label>
-    <label>Ciudad
-      <select name="per_ciudad_id" id="ciudadSelect" required></select>
-    </label>
-    <label>EPS
-      <select name="per_eps_id" id="epsSelect" required></select>
-    </label>
-    <label>Tipo de alimentación
-      <select name="per_ali_id" id="alimentacionSelect" required></select>
-    </label>
     <label>Banco
-      <select name="per_bper_id" id="bancoSelect" required></select>
-    </label>
-    <label>Perfilamiento</label>
-      <select name="per_perf_id" id="perfilamientoSelect" required></select>
+      <select name="nBan_id" id="BancoSelect" required></select>
     </label>
 
+    <label>Tipo de Cuenta
+      <select name="tcu_id" id="TipoCuentaSelect" required></select>
+    </label>
+
+    <label>Numero de Cuenta
+      <select name="ban_num_cuenta" id="NumeroCuentaSelect" required></select>
+    </label>
     
-
-
     <button type="submit">Registrar</button>
   </form>
 
