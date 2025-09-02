@@ -329,6 +329,7 @@
         if (urls.per_pdf_hoja_vida) datos.per_pdf_hoja_vida = urls.per_pdf_hoja_vida;
 
         datos.per_perfilamiento = 1;
+        datos.per_status_personal = 1;
 
         // 5. Insertar en personal
         const { error } = await supabaseClient.from('personal').insert([datos]);
