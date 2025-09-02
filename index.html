@@ -75,7 +75,11 @@
 
     <!-- Datos personales -->
     <label>Tipo Documento*
-      <select name="per_tipo_doc" id="tipo_documento_Select" required></select>
+      <select name="per_tipo_doc" id="tipo_documento_Select" required>
+        <option value="">-- Seleccione --</option>
+        <option value="CC">CC – Cédula de Ciudadanía</option>
+        <option value="PPT">PPT – Permiso por Protección Temporal</option>
+      </select>
     </label>
 
     <label>Cédula*
