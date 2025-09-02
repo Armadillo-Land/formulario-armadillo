@@ -146,7 +146,7 @@
       <input type="text" name="per_alergias" maxlength="100" required>
     </label>
 
-    <label>Estatura*
+    <label>Estatura(cm)*
       <input type="number" name="per_estatura" required>
     </label>
 
@@ -226,12 +226,15 @@
 
     <!-- Nivel de inglés -->
     <label>Nivel de Inglés
-      <input type="text" name="per_nivel_ingles" maxlength="2" required>
-    </label>
-
-    <!-- Perfilamiento -->
-    <label>Perfilamiento
-      <select name="per_perfilamiento" id="PerfilamientoSelect" required></select>
+      <select name="per_nivel_ingles" id="per_nivel_ingles" required>
+        <option value="">-- Seleccione --</option>
+        <option value="A1">A1</option>
+        <option value="A2">A2</option>
+        <option value="B1">B1</option>
+        <option value="B2">B2</option>
+        <option value="C1">C1</option>
+        <option value="C2">C2</option>
+      </select>
     </label>
 
     <button type="submit">Registrar</button>
@@ -249,8 +252,7 @@
       epss: { id: 'eps_id', texto: 'eps_nombre' },
       alimentacion: { id: 'ali_id', texto: 'ali_tipo_alimentacion' },
       bancos: { id: 'ban_id', texto: 'ban_banco_nombre' },
-      tipo_cuenta_bancaria: { id: 'tcb_id', texto: 'tcb_tipo_cuenta' },
-      perfilamiento: { id: 'perf_id', texto: 'perf_nombre_perfil' }
+      tipo_cuenta_bancaria: { id: 'tcb_id', texto: 'tcb_tipo_cuenta' }
     };
 
     async function cargarOpciones(tabla, selectId) {
@@ -270,7 +272,6 @@
       await cargarOpciones('alimentacion', 'alimentacionSelect');
       await cargarOpciones('bancos', 'BancoSelect');
       await cargarOpciones('tipo_cuenta_bancaria', 'TipoCuentaSelect');
-      await cargarOpciones('perfilamiento', 'PerfilamientoSelect');
     }
 
     async function subirArchivo(bucket, archivo, nombre) {
@@ -326,6 +327,8 @@
         if (urls.per_pdf_rut) datos.per_pdf_rut = urls.per_pdf_rut;
         if (urls.per_pdf_comprobante_banco) datos.per_pdf_comprobante_banco = urls.per_pdf_comprobante_banco;
         if (urls.per_pdf_hoja_vida) datos.per_pdf_hoja_vida = urls.per_pdf_hoja_vida;
+
+        datos.per_perfilamiento = 1;
 
         // 5. Insertar en personal
         const { error } = await supabaseClient.from('personal').insert([datos]);
