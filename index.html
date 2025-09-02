@@ -45,13 +45,19 @@
     button:hover {
       background: #005fa3;
     }
+
+    button[disabled] {
+      opacity: .6;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 
 <body>
   <h2>Formulario de Registro Personal</h2>
+
   <form id="personalForm">
-    <!-- Status por defecto (también forzaremos en JS) -->
+    <!-- Status por defecto (también se forzará en JS) -->
     <input type="hidden" name="per_status_personal" value="1">
 
     <!-- Archivos -->
@@ -83,7 +89,7 @@
     </label>
 
     <label>Cédula*
-      <!-- si tu BD es varchar(10), deja 10; si la subiste a 20, cambia aquí -->
+      <!-- si en tu BD subiste a varchar(20), cambia maxlength a 20 -->
       <input type="text" name="per_num_doc" maxlength="10" inputmode="numeric" pattern="\d{6,10}" required>
     </label>
 
@@ -209,7 +215,7 @@
     </label>
 
     <label>Teléfono contacto emergencia*
-      <!-- si tu BD tiene varchar(10), baja a maxlength=10 -->
+      <!-- si tu BD tiene varchar(10), cambia a maxlength=10 -->
       <input type="text" name="per_telefono_contacto_emergencia" maxlength="13" required>
     </label>
 
@@ -259,7 +265,8 @@
     async function cargarOpciones(tabla, selectId) {
       const cfg = camposSelect[tabla];
       if (!cfg) return;
-      const { data, error } = await supabaseClient.from(tabla).select(`${cfg.id}, ${cfg.texto}`).order(cfg.texto, { ascending: true });
+      const { data, error } = await supabaseClient
+        .from(tabla).select(`${cfg.id}, ${cfg.texto}`).order(cfg.texto, { ascending: true });
       if (error) { console.error(error); return; }
       const sel = document.getElementById(selectId);
       sel.innerHTML = `<option value="">-- Seleccione --</option>`;
@@ -287,122 +294,121 @@
       document.getElementById('personalForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const form = e.target;
-        const formData = new FormData(form);
+        const btn = form.querySelector('button[type="submit"]');
 
-        // 1) Validar fecha
-        const fechaNacimiento = new Date(formData.get('per_fecha_nacimiento'));
-        if (fechaNacimiento > new Date()) {
-          alert("La fecha de nacimiento no puede ser en el futuro.");
-          return;
-        }
-
-        // 2) Pre-check de cédula para evitar uploads/rows innecesarios
-        const DUP_MSG = "Tu cédula ya está en la Base de Datos, si quieres modificar algún dato por favor escribe por WhatsApp al 3046780278";
-        const doc = (formData.get('per_num_doc') || '').trim();
+        // evita doble submit
+        if (btn.disabled) return;
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Enviando...';
+        btn.setAttribute('aria-busy', 'true');
 
         try {
-          const { data: ya, error: selErr } = await supabaseClient
-            .from('personal')
-            .select('per_id')
-            .eq('per_num_doc', doc)
-            .maybeSingle();
-          if (!selErr && ya) {
-            alert(DUP_MSG);
+          const formData = new FormData(form);
+
+          // 1) Validar fecha
+          const fechaNacimiento = new Date(formData.get('per_fecha_nacimiento'));
+          if (fechaNacimiento > new Date()) { alert("La fecha de nacimiento no puede ser en el futuro."); return; }
+
+          // 2) Pre-check de cédula (si RLS bloquea, se detecta en el insert)
+          const DUP_MSG = "Tu cédula ya está en la Base de Datos, si quieres modificar algún dato por favor escribe por WhatsApp al 3046780278";
+          const doc = (formData.get('per_num_doc') || '').trim();
+          try {
+            const { data: ya, error: selErr } = await supabaseClient
+              .from('personal').select('per_id').eq('per_num_doc', doc).maybeSingle();
+            if (!selErr && ya) { alert(DUP_MSG); return; }
+          } catch (_) { }
+
+          // 3) Subir archivos
+          const fileFields = ['per_foto', 'per_pdf_cedula', 'per_pdf_rut', 'per_pdf_comprobante_banco', 'per_pdf_hoja_vida'];
+          const urls = {};
+          for (const f of fileFields) {
+            const file = formData.get(f);
+            if (file && file.name) {
+              const nombre = `${f}_${Date.now()}_${file.name}`;
+              urls[f] = await subirArchivo('personalfiles', file, nombre);
+            }
+          }
+
+          // 4) Insertar en datos_bancarios
+          const bancoData = {
+            dba_banco_id: formData.get('dba_banco_id'),
+            dba_tcb_id: formData.get('dba_tcb_id'),
+            dba_num_cuenta: formData.get('dba_num_cuenta')
+          };
+          const { data: dbank, error: dberr } = await supabaseClient
+            .from('datos_bancarios').insert([bancoData]).select('dba_id').single();
+          if (dberr) { alert('Error al guardar datos bancarios: ' + dberr.message); return; }
+
+          // 5) Preparar datos para personal
+          const datos = Object.fromEntries(formData.entries());
+          delete datos.dba_banco_id;
+          delete datos.dba_tcb_id;
+          delete datos.dba_num_cuenta;
+          delete datos.per_foto;
+          delete datos.per_pdf_cedula;
+          delete datos.per_pdf_rut;
+          delete datos.per_pdf_comprobante_banco;
+          delete datos.per_pdf_hoja_vida;
+
+          datos.per_dato_bancario = dbank.dba_id;
+          if (urls.per_foto) datos.per_foto = urls.per_foto;
+          if (urls.per_pdf_cedula) datos.per_pdf_cedula = urls.per_pdf_cedula;
+          if (urls.per_pdf_rut) datos.per_pdf_rut = urls.per_pdf_rut;
+          if (urls.per_pdf_comprobante_banco) datos.per_pdf_comprobante_banco = urls.per_pdf_comprobante_banco;
+          if (urls.per_pdf_hoja_vida) datos.per_pdf_hoja_vida = urls.per_pdf_hoja_vida;
+
+          // valores por defecto obligatorios
+          datos.per_perfilamiento = 1;
+          datos.per_status_personal = 1;
+
+          for (const k in datos) if (datos[k] === '') datos[k] = null;
+
+          // 6) Insert con manejo de duplicado (ultra-robusto)
+          let ins;
+          try {
+            ins = await supabaseClient.from('personal').insert([datos]);
+          } catch (e2) {
+            ins = { error: e2 };
+          }
+          const { error } = ins;
+
+          if (error) {
+            const code = (error.code ?? '').toString();
+            const status = error.status;
+            const joined = [
+              code,
+              error.message ?? '',
+              error.details ?? '',
+              error.hint ?? '',
+              JSON.stringify(error)
+            ].join(' | ').toLowerCase();
+
+            const isDuplicate =
+              code === '23505' ||
+              status === 409 ||
+              /duplicate/.test(joined) ||
+              /unique/.test(joined) ||
+              /per_num_doc/.test(joined);
+
+            if (isDuplicate) {
+              alert(DUP_MSG);
+            } else {
+              console.error('Insert error →', error);
+              alert('Error al guardar personal: ' + (error.message || ''));
+            }
             return;
           }
-        } catch (_) { /* si RLS bloquea el select, seguimos y capturamos en el insert */ }
 
-        // 3) Subir archivos
-        const fileFields = ['per_foto', 'per_pdf_cedula', 'per_pdf_rut', 'per_pdf_comprobante_banco', 'per_pdf_hoja_vida'];
-        const urls = {};
-        for (const f of fileFields) {
-          const file = formData.get(f);
-          if (file && file.name) {
-            const nombre = `${f}_${Date.now()}_${file.name}`;
-            urls[f] = await subirArchivo('personalfiles', file, nombre);
-          }
+          alert('✅ Registro guardado correctamente');
+          form.reset();
+
+        } finally {
+          // re-habilitar botón pase lo que pase
+          btn.disabled = false;
+          btn.textContent = originalText;
+          btn.removeAttribute('aria-busy');
         }
-
-        // 4) Insertar en datos_bancarios
-        const bancoData = {
-          dba_banco_id: formData.get('dba_banco_id'),
-          dba_tcb_id: formData.get('dba_tcb_id'),
-          dba_num_cuenta: formData.get('dba_num_cuenta')
-        };
-        const { data: dbank, error: dberr } = await supabaseClient
-          .from('datos_bancarios')
-          .insert([bancoData])
-          .select('dba_id')
-          .single();
-        if (dberr) { alert('Error al guardar datos bancarios: ' + dberr.message); return; }
-
-        // 5) Preparar datos para personal
-        const datos = Object.fromEntries(formData.entries());
-        // quitar campos ajenos y los files
-        delete datos.dba_banco_id;
-        delete datos.dba_tcb_id;
-        delete datos.dba_num_cuenta;
-        delete datos.per_foto;
-        delete datos.per_pdf_cedula;
-        delete datos.per_pdf_rut;
-        delete datos.per_pdf_comprobante_banco;
-        delete datos.per_pdf_hoja_vida;
-
-        // FK y URLs
-        datos.per_dato_bancario = dbank.dba_id;
-        if (urls.per_foto) datos.per_foto = urls.per_foto;
-        if (urls.per_pdf_cedula) datos.per_pdf_cedula = urls.per_pdf_cedula;
-        if (urls.per_pdf_rut) datos.per_pdf_rut = urls.per_pdf_rut;
-        if (urls.per_pdf_comprobante_banco) datos.per_pdf_comprobante_banco = urls.per_pdf_comprobante_banco;
-        if (urls.per_pdf_hoja_vida) datos.per_pdf_hoja_vida = urls.per_pdf_hoja_vida;
-
-        // valores por defecto obligatorios
-        datos.per_perfilamiento = 1;
-        datos.per_status_personal = 1;
-
-        // normaliza vacíos
-        for (const k in datos) if (datos[k] === '') datos[k] = null;
-
-        // 6) Insertar en personal con manejo de duplicado (ultra-robusto)
-        let ins;
-        try {
-          ins = await supabaseClient.from('personal').insert([datos]);
-        } catch (e) {
-          // por si supabase-js lanza excepción en vez de devolver { error }
-          ins = { error: e };
-        }
-
-        const { error } = ins;
-
-        if (error) {
-          const code = (error.code ?? '').toString();
-          const status = error.status;
-          const joined = [
-            code,
-            error.message ?? '',
-            error.details ?? '',
-            error.hint ?? '',
-            JSON.stringify(error) // por si viene anidado
-          ].join(' | ').toLowerCase();
-
-          const isDuplicate =
-            code === '23505' ||
-            status === 409 ||
-            /duplicate/.test(joined) ||
-            /unique/.test(joined) ||
-            /per_num_doc/.test(joined);
-
-          if (isDuplicate) {
-            alert("Tu cédula ya está en la Base de Datos, si quieres modificar algún dato por favor escribe por WhatsApp al 3046780278");
-          } else {
-            console.error('Insert error →', error);
-            alert('Error al guardar personal: ' + (error.message || ''));
-          }
-          return;
-        }
-
-        alert('✅ Registro guardado correctamente');
-        form.reset();
       });
     });
   </script>
