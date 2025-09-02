@@ -365,14 +365,34 @@
 
         // 6) Insertar en personal con manejo de duplicado
         const { error } = await supabaseClient.from('personal').insert([datos]);
+
         if (error) {
-          if (error.code === '23505' || /per_num_doc/i.test(error.message) || /duplicate key/i.test(error.message)) {
-            alert(DUP_MSG);
+          // detección robusta del error de unicidad
+          const code = error?.code || '';
+          const message = (error?.message || '').toLowerCase();
+          const details = (error?.details || '').toLowerCase();
+          const status = error?.status; // algunos devuelven 409
+
+          const isDuplicate =
+            code === '23505' ||
+            status === 409 ||
+            message.includes('duplicate key') ||
+            message.includes('unique constraint') ||
+            message.includes('per_num_doc') ||
+            details.includes('already exists') ||
+            details.includes('duplicate') ||
+            details.includes('per_num_doc');
+
+          if (isDuplicate) {
+            alert("Tu cédula ya está en la Base de Datos, si quieres modificar algún dato por favor escribe por WhatsApp al 3046780278");
           } else {
+            // útil para diagnosticar otros casos
+            console.error('Insert error:', error);
             alert('Error al guardar personal: ' + error.message);
           }
           return;
         }
+
 
         alert('✅ Registro guardado correctamente');
         form.reset();
