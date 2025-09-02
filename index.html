@@ -95,27 +95,27 @@
     </label>
 
     <label>Primer Nombre*
-      <input type="text" name="per_primer_nombre" maxlength="50" required>
+      <input type="text" name="per_primer_nombre" maxlength="50" class="solo_letras" required>
     </label>
 
     <label>Segundo Nombre
-      <input type="text" name="per_segundo_nombre" maxlength="50">
+      <input type="text" name="per_segundo_nombre" maxlength="50" class="solo_letras">
     </label>
 
     <label>Primer Apellido*
-      <input type="text" name="per_primer_apellido" maxlength="50" required>
+      <input type="text" name="per_primer_apellido" maxlength="50" class="solo_letras" required>
     </label>
 
     <label>Segundo Apellido
-      <input type="text" name="per_segundo_apellido" maxlength="50">
+      <input type="text" name="per_segundo_apellido" maxlength="50" class="solo_letras">
     </label>
 
     <label>Teléfono Llamada*
-      <input type="text" name="per_telefono_llamada" maxlength="13" class="digits-only" required>
+      <input type="text" name="per_telefono_llamada" maxlength="10" class="digits-only" required>
     </label>
 
     <label>Teléfono WhatsApp*
-      <input type="text" name="per_telefono_whatsapp" maxlength="13" class="digits-only" required>
+      <input type="text" name="per_telefono_whatsapp" maxlength="10" class="digits-only" required>
     </label>
 
     <label>Género
@@ -143,7 +143,7 @@
     </label>
 
     <label>Localidad o Barrio*
-      <input type="text" name="per_localidad_barrio" maxlength="100" required>
+      <input type="text" name="per_localidad_barrio" maxlength="100" class="solo_letras" required>
     </label>
 
     <label>Tipo de alimentación
@@ -151,11 +151,11 @@
     </label>
 
     <label>Alergias*
-      <input type="text" name="per_alergias" maxlength="100">
+      <input type="text" name="per_alergias" maxlength="100" class="solo_letras">
     </label>
 
     <label>Estatura(cm)*
-      <input type="number" name="per_estatura" inputmode="numeric" maxlength="3" class="digits-only" required>
+      <input type="number" name="per_estatura" maxlength="3" inputmode="numeric" class="digits-only" required>
     </label>
 
     <label>Talla Camiseta
@@ -212,12 +212,12 @@
     </label>
 
     <label>Nombre contacto emergencia*
-      <input type="text" name="per_nombre_emergencia" maxlength="100" required>
+      <input type="text" name="per_nombre_emergencia" maxlength="100" class="solo_letras" required>
     </label>
 
     <label>Teléfono contacto emergencia*
       <!-- si tu BD tiene varchar(10), cambia a maxlength=10 -->
-      <input type="text" name="per_telefono_contacto_emergencia" maxlength="13" inputmode="numeric" class="digits-only"
+      <input type="text" name="per_telefono_contacto_emergencia" maxlength="10" inputmode="numeric" class="digits-only"
         required>
     </label>
 
@@ -231,13 +231,13 @@
     </label>
 
     <label>Número de Cuenta
-      <input type="text" name="dba_num_cuenta" id="NumeroCuentaInput" required>
+      <input type="text" name="dba_num_cuenta" id="NumeroCuentaInput" maxlength="20" inputmode="numeric"
+        class="digits-only" required>
     </label>
 
     <!-- Nivel de inglés -->
     <label>Nivel de Inglés
-      <select name="per_nivel_ingles" id="per_nivel_ingles" maxlength="20" inputmode="numeric" class="digits-only"
-        required>
+      <select name="per_nivel_ingles" id="per_nivel_ingles" required>
         <option value="">-- Seleccione --</option>
         <option value="A1">A1</option>
         <option value="A2">A2</option>
@@ -414,7 +414,7 @@
         }
       });
     });
-
+    // -------------- DOM SOLO NUMEROS ------------------------------------
     // Restringe a dígitos, bloquea teclas no numéricas y pegado no numérico
     (function () {
       function getMax(el) {
@@ -466,6 +466,45 @@
         const max = getMax(el);
         const cleaned = el.value.replace(/\D/g, '').slice(0, max);
         if (el.value !== cleaned) el.value = cleaned;
+      });
+    })();
+
+
+    // ------------------- DOM -- SOLO LETRAS ------------------------------
+    (function () {
+      // Letras con soporte para español: tildes, diéresis, ñ/Ñ; espacios, guion y apóstrofo
+      const allowed = /[A-Za-zÁÉÍÓÚÜáéíóúüÑñ\s'-]/g;
+
+      function maxLen(el) {
+        const n = parseInt(el.dataset.maxlength || el.maxLength || '100', 10);
+        return Number.isFinite(n) ? n : 100;
+      }
+
+      // Filtro general ante cualquier cambio (tecleo, autocompletar, IME, etc.)
+      document.addEventListener('input', (e) => {
+        const el = e.target;
+        if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
+
+        const m = maxLen(el);
+        // Quita todo lo que no sea "allowed"
+        const cleaned = (el.value.match(allowed) || []).join('').slice(0, m);
+        if (el.value !== cleaned) el.value = cleaned;
+      });
+
+      // Controla el pegado para que solo entren caracteres permitidos y respete el máximo
+      document.addEventListener('paste', (e) => {
+        const el = e.target;
+        if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
+
+        const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
+        const m = maxLen(el);
+        const cleaned = (raw.match(allowed) || []).join('');
+        const space = m - el.value.length;
+
+        e.preventDefault(); // manejamos el pegado manualmente
+        if (space > 0 && cleaned) {
+          el.value += cleaned.slice(0, space);
+        }
       });
     })();
   </script>
