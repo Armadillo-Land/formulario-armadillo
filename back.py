@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Formulario Personal</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f9f9f9;
+    }
+
+    form {
+      max-width: 800px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: #0077cc;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #005fa3;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Formulario de Registro Personal</h2>
+  <form id="personalForm">
+    <!-- Status por defecto -->
+    <input type="hidden" name="per_status_personal" value="1">
+
+    <!-- Archivos -->
+    <label>Foto personal*
+      <input type="file" id="per_foto_input" name="per_foto" accept="image/*" required>
+    </label>
+    <label>Imagen Cédula*
+      <input type="file" id="per_pdf_cedula_input" name="per_pdf_cedula" accept="application/pdf,image/*" required>
+    </label>
+    <label>RUT (PDF)*
+      <input type="file" id="per_pdf_rut_input" name="per_pdf_rut" accept="application/pdf,image/*" required>
+    </label>
+    <label>Comprobante Banco*
+      <input type="file" id="per_pdf_comprobante_banco_input" name="per_pdf_comprobante_banco"
+        accept="application/pdf,image/*" required>
+    </label>
+    <label>Hoja de Vida*
+      <input type="file" id="per_pdf_hoja_vida_input" name="per_pdf_hoja_vida" accept="application/pdf,image/*"
+        required>
+    </label>
+
+    <!-- Datos personales -->
+    <label>Tipo Documento*
+      <select name="per_tipo_doc" id="tipo_documento_Select" required>
+        <option value="">-- Seleccione --</option>
+        <option value="CC">CC – Cédula de Ciudadanía</option>
+        <option value="PPT">PPT – Permiso por Protección Temporal</option>
+      </select>
+    </label>
+
+    <label>Cédula*
+      <input type="text" name="per_num_doc" maxlength="20" required>
+    </label>
+
+    <label>Primer Nombre*
+      <input type="text" name="per_primer_nombre" maxlength="50" required>
+    </label>
+
+    <label>Segundo Nombre
+      <input type="text" name="per_segundo_nombre" maxlength="50">
+    </label>
+
+    <label>Primer Apellido*
+      <input type="text" name="per_primer_apellido" maxlength="50" required>
+    </label>
+
+    <label>Segundo Apellido
+      <input type="text" name="per_segundo_apellido" maxlength="50">
+    </label>
+
+    <label>Teléfono Llamada*
+      <input type="text" name="per_telefono_llamada" maxlength="13" required>
+    </label>
+
+    <label>Teléfono WhatsApp*
+      <input type="text" name="per_telefono_whatsapp" maxlength="13" required>
+    </label>
+
+    <label>Género
+      <select name="per_genero_id" id="generoSelect" required></select>
+    </label>
+
+    <label>EPS
+      <select name="per_eps_id" id="epsSelect" required></select>
+    </label>
+
+    <label>Fecha Nacimiento*
+      <input type="date" name="per_fecha_nacimiento" id="per_fecha_nacimiento" required>
+    </label>
+
+    <label>Correo*
+      <input type="email" name="per_correo" maxlength="100" required>
+    </label>
+
+    <label>Dirección de residencia*
+      <input type="text" name="per_direccion_residencia" maxlength="100" required>
+    </label>
+
+    <label>Ciudad
+      <select name="per_ciudad_id" id="ciudadSelect" required></select>
+    </label>
+
+    <label>Localidad o Barrio*
+      <input type="text" name="per_localidad_barrio" maxlength="100" required>
+    </label>
+
+    <label>Tipo de alimentación
+      <select name="per_ali_id" id="alimentacionSelect" required></select>
+    </label>
+
+    <label>Alergias*
+      <input type="text" name="per_alergias" maxlength="100" required>
+    </label>
+
+    <label>Estatura(cm)*
+      <input type="number" name="per_estatura" required>
+    </label>
+
+    <label>Talla Camiseta
+      <select name="per_talla_camiseta" id="TallaCamisetaSelect" required>
+        <option value="">-- Seleccione --</option>
+        <option value="XS">XS</option>
+        <option value="S">S</option>
+        <option value="M">M</option>
+        <option value="L">L</option>
+        <option value="XL">XL</option>
+        <option value="2XL">2XL</option>
+        <option value="3XL">3XL</option>
+        <option value="4XL">4XL</option>
+      </select>
+    </label>
+
+    <label>Talla de Pantalón
+      <select name="per_talla_pantalon" id="TallaPantalonSelect" required>
+        <option value="">-- Seleccione --</option>
+        <option value="20">20</option>
+        <option value="22">22</option>
+        <option value="24">24</option>
+        <option value="26">26</option>
+        <option value="28">28</option>
+        <option value="30">30</option>
+        <option value="32">32</option>
+        <option value="34">34</option>
+        <option value="36">36</option>
+        <option value="38">38</option>
+        <option value="40">40</option>
+      </select>
+    </label>
+
+    <label>Talla de Zapatos
+      <select name="per_talla_zapatos" id="TallaZapatosSelect" required>
+        <option value="">-- Seleccione --</option>
+        <option value="30">30</option>
+        <option value="31">31</option>
+        <option value="32">32</option>
+        <option value="33">33</option>
+        <option value="34">34</option>
+        <option value="35">35</option>
+        <option value="36">36</option>
+        <option value="37">37</option>
+        <option value="38">38</option>
+        <option value="39">39</option>
+        <option value="40">40</option>
+        <option value="41">41</option>
+        <option value="42">42</option>
+        <option value="43">43</option>
+        <option value="44">44</option>
+        <option value="45">45</option>
+      </select>
+    </label>
+
+    <label>Nombre contacto emergencia*
+      <input type="text" name="per_nombre_emergencia" maxlength="100" required>
+    </label>
+
+    <label>Teléfono contacto emergencia*
+      <input type="text" name="per_telefono_contacto_emergencia" maxlength="13" required>
+    </label>
+
+    <!-- Datos bancarios -->
+    <label>Banco
+      <select name="dba_banco_id" id="BancoSelect" required></select>
+    </label>
+
+    <label>Tipo de Cuenta
+      <select name="dba_tcb_id" id="TipoCuentaSelect" required></select>
+    </label>
+
+    <label>Número de Cuenta
+      <input type="text" name="dba_num_cuenta" id="NumeroCuentaInput" required>
+    </label>
+
+    <!-- Nivel de inglés -->
+    <label>Nivel de Inglés
+      <select name="per_nivel_ingles" id="per_nivel_ingles" required>
+        <option value="">-- Seleccione --</option>
+        <option value="A1">A1</option>
+        <option value="A2">A2</option>
+        <option value="B1">B1</option>
+        <option value="B2">B2</option>
+        <option value="C1">C1</option>
+        <option value="C2">C2</option>
+      </select>
+    </label>
+
+    <button type="submit">Registrar</button>
+  </form>
+
+
+  <script>
+    const SUPABASE_URL = 'https://mjtrmkftgeebbrkqtdou.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qdHJta2Z0Z2VlYmJya3F0ZG91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0ODk3MjEsImV4cCI6MjA3MjA2NTcyMX0.zNp-JkJ0xJioGLqV2M2DmijLfUulPgMC8tbEhf8ZjZk';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const camposSelect = {
+      generos: { id: 'gen_id', texto: 'gen_nombre' },
+      ciudades: { id: 'ciu_id', texto: 'ciu_nombre' },
+      epss: { id: 'eps_id', texto: 'eps_nombre' },
+      alimentacion: { id: 'ali_id', texto: 'ali_tipo_alimentacion' },
+      bancos: { id: 'ban_id', texto: 'ban_banco_nombre' },
+      tipo_cuenta_bancaria: { id: 'tcb_id', texto: 'tcb_tipo_cuenta' }
+    };
+
+    async function cargarOpciones(tabla, selectId) {
+      const cfg = camposSelect[tabla];
+      if (!cfg) return;
+      const { data, error } = await supabaseClient.from(tabla).select(`${cfg.id}, ${cfg.texto}`).order(cfg.texto, { ascending: true });
+      if (error) { console.error(error); return; }
+      const sel = document.getElementById(selectId);
+      sel.innerHTML = `<option value="">-- Seleccione --</option>`;
+      data.forEach(r => sel.innerHTML += `<option value="${r[cfg.id]}">${r[cfg.texto]}</option>`);
+    }
+
+    async function inicializarSelects() {
+      await cargarOpciones('generos', 'generoSelect');
+      await cargarOpciones('ciudades', 'ciudadSelect');
+      await cargarOpciones('epss', 'epsSelect');
+      await cargarOpciones('alimentacion', 'alimentacionSelect');
+      await cargarOpciones('bancos', 'BancoSelect');
+      await cargarOpciones('tipo_cuenta_bancaria', 'TipoCuentaSelect');
+    }
+
+    async function subirArchivo(bucket, archivo, nombre) {
+      const { error } = await supabaseClient.storage.from(bucket).upload(nombre, archivo, { upsert: true });
+      if (error) throw error;
+      return supabaseClient.storage.from(bucket).getPublicUrl(nombre).data.publicUrl;
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await inicializarSelects();
+
+      document.getElementById('personalForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+
+        // 1. Validar fecha
+        const fechaNacimiento = new Date(formData.get('per_fecha_nacimiento'));
+        if (fechaNacimiento > new Date()) {
+          alert("La fecha de nacimiento no puede ser en el futuro.");
+          return;
+        }
+
+        // 2. Subir archivos
+        const files = ['per_foto', 'per_pdf_cedula', 'per_pdf_rut', 'per_pdf_comprobante_banco', 'per_pdf_hoja_vida'];
+        const urls = {};
+        for (let f of files) {
+          const file = formData.get(f);
+          if (file && file.name) {
+            const nombre = `${f}_${Date.now()}_${file.name}`;
+            urls[f] = await subirArchivo('personalfiles', file, nombre);
+          }
+        }
+
+        // 3. Insertar en datos_bancarios
+        const bancoData = {
+          dba_banco_id: formData.get('dba_banco_id'),
+          dba_tcb_id: formData.get('dba_tcb_id'),
+          dba_num_cuenta: formData.get('dba_num_cuenta')
+        };
+        const { data: dbank, error: dberr } = await supabaseClient.from('datos_bancarios').insert([bancoData]).select('dba_id').single();
+        if (dberr) { alert('Error al guardar datos bancarios: ' + dberr.message); return; }
+
+        // 4. Preparar datos para personal
+        const datos = Object.fromEntries(formData.entries());
+        delete datos.dba_banco_id;
+        delete datos.dba_tcb_id;
+        delete datos.dba_num_cuenta;
+
+        datos.per_dato_bancario = dbank.dba_id;
+        if (urls.per_foto) datos.per_foto = urls.per_foto;
+        if (urls.per_pdf_cedula) datos.per_pdf_cedula = urls.per_pdf_cedula;
+        if (urls.per_pdf_rut) datos.per_pdf_rut = urls.per_pdf_rut;
+        if (urls.per_pdf_comprobante_banco) datos.per_pdf_comprobante_banco = urls.per_pdf_comprobante_banco;
+        if (urls.per_pdf_hoja_vida) datos.per_pdf_hoja_vida = urls.per_pdf_hoja_vida;
+
+        datos.per_perfilamiento = 1;
+        datos.per_status_personal = 1;
+
+        // 5. Insertar en personal
+        const { error } = await supabaseClient.from('personal').insert([datos]);
+        if (error) alert('Error al guardar personal: ' + error.message);
+        else { alert('✅ Registro guardado correctamente'); form.reset(); }
+      });
+    });
+  </script>
+</body>
+
+</html>
