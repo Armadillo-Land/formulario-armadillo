@@ -12,7 +12,6 @@
       padding: 20px;
       background: #f9f9f9;
     }
-
     form {
       max-width: 800px;
       margin: auto;
@@ -20,19 +19,15 @@
       padding: 20px;
       border-radius: 10px;
     }
-
     label {
       display: block;
       margin-top: 15px;
     }
-
-    input,
-    select {
+    input, select {
       width: 100%;
       padding: 8px;
       margin-top: 5px;
     }
-
     button {
       margin-top: 20px;
       padding: 10px 20px;
@@ -41,15 +36,8 @@
       border: none;
       cursor: pointer;
     }
-
-    button:hover {
-      background: #005fa3;
-    }
-
-    button[disabled] {
-      opacity: .6;
-      cursor: not-allowed;
-    }
+    button:hover { background: #005fa3; }
+    button[disabled] { opacity: .6; cursor: not-allowed; }
   </style>
 </head>
 
@@ -234,7 +222,7 @@
     <label>Nivel de Inglés
       <select name="per_nivel_ingles" id="per_nivel_ingles" required>
         <option value="">-- Seleccione --</option>
-        <option value="A1">NA</option>
+        <option value="NA">NA</option>
         <option value="A1">A1</option>
         <option value="A2">A2</option>
         <option value="B1">B1</option>
@@ -285,6 +273,43 @@
       return supabaseClient.storage.from(bucket).getPublicUrl(nombre).data.publicUrl;
     }
 
+    // --- Helper: valida que la cédula esté en 'autorizados' y NO exista en 'personal'
+    async function verificarElegibilidad(supabaseClient, doc) {
+      const DUP_MSG  = "Tu cédula ya está en la Base de Datos, si quieres modificar algún dato por favor escribe por WhatsApp al 3046780278";
+      const AUTH_MSG = "Tu cédula no está autorizada aún para registrarte. Por favor espera a que te incluyan en la lista (autorizados).";
+
+      const cedula = (doc || "").trim();
+      if (!cedula) return { ok: false, msg: "Debes ingresar una cédula válida." };
+
+      // 1) ¿Está autorizado?
+      const { data: autorizado, error: errAuth } = await supabaseClient
+        .from('autorizados')
+        .select('id')
+        .eq('num_cedula', cedula)
+        .maybeSingle();
+
+      if (errAuth) {
+        console.error('Error consultando autorizados:', errAuth);
+        return { ok: false, msg: "Error validando autorización. Intenta de nuevo." };
+      }
+      if (!autorizado) return { ok: false, msg: AUTH_MSG };
+
+      // 2) ¿Ya existe en personal?
+      const { data: existe, error: errPer } = await supabaseClient
+        .from('personal')
+        .select('per_id')
+        .eq('per_num_doc', cedula)
+        .maybeSingle();
+
+      if (errPer) {
+        console.error('Error consultando personal:', errPer);
+        return { ok: false, msg: "Error validando duplicado. Intenta de nuevo." };
+      }
+      if (existe) return { ok: false, msg: DUP_MSG };
+
+      return { ok: true, msg: "" };
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       await inicializarSelects();
 
@@ -305,16 +330,15 @@
 
           // 1) Validar fecha
           const fechaNacimiento = new Date(formData.get('per_fecha_nacimiento'));
-          if (fechaNacimiento > new Date()) { alert("La fecha de nacimiento no puede ser en el futuro."); return; }
+          if (fechaNacimiento > new Date()) {
+            alert("La fecha de nacimiento no puede ser en el futuro.");
+            return;
+          }
 
-          // 2) Pre-check de cédula (si RLS bloquea, se detecta en el insert)
-          const DUP_MSG = "Tu cédula ya está en la Base de Datos, si quieres modificar algún dato por favor escribe por WhatsApp al 3046780278";
+          // 2) Pre-check contra lista blanca y duplicados (antes de subir archivos)
           const doc = (formData.get('per_num_doc') || '').trim();
-          try {
-            const { data: ya, error: selErr } = await supabaseClient
-              .from('personal').select('per_id').eq('per_num_doc', doc).maybeSingle();
-            if (!selErr && ya) { alert(DUP_MSG); return; }
-          } catch (_) { }
+          const eleg = await verificarElegibilidad(supabaseClient, doc);
+          if (!eleg.ok) { alert(eleg.msg); return; }
 
           // 3) Subir archivos
           const fileFields = ['per_foto', 'per_pdf_cedula', 'per_pdf_rut', 'per_pdf_comprobante_banco', 'per_pdf_hoja_vida'];
@@ -327,16 +351,7 @@
             }
           }
 
-          // 4) Insertar en datos_bancarios
-          const bancoData = {
-            dba_banco_id: formData.get('dba_banco_id'),
-            dba_num_cuenta: formData.get('dba_num_cuenta')
-          };
-          const { data: dbank, error: dberr } = await supabaseClient
-            .from('datos_bancarios').insert([bancoData]).select('dba_id').single();
-          if (dberr) { alert('Error al guardar datos bancarios: ' + dberr.message); return; }
-
-          // 5) Preparar datos para personal
+          // 4) Preparar datos para el RPC
           const datos = Object.fromEntries(formData.entries());
           delete datos.dba_banco_id;
           delete datos.dba_num_cuenta;
@@ -346,52 +361,34 @@
           delete datos.per_pdf_comprobante_banco;
           delete datos.per_pdf_hoja_vida;
 
-          datos.per_dato_bancario = dbank.dba_id;
+          // valores por defecto obligatorios
+          datos.per_perfilamiento = 1;
+          datos.per_status_personal = 1;
+
+          // Insertar URLs de los archivos
           if (urls.per_foto) datos.per_foto = urls.per_foto;
           if (urls.per_pdf_cedula) datos.per_pdf_cedula = urls.per_pdf_cedula;
           if (urls.per_pdf_rut) datos.per_pdf_rut = urls.per_pdf_rut;
           if (urls.per_pdf_comprobante_banco) datos.per_pdf_comprobante_banco = urls.per_pdf_comprobante_banco;
           if (urls.per_pdf_hoja_vida) datos.per_pdf_hoja_vida = urls.per_pdf_hoja_vida;
 
-          // valores por defecto obligatorios
-          datos.per_perfilamiento = 1;
-          datos.per_status_personal = 1;
-
           for (const k in datos) if (datos[k] === '') datos[k] = null;
 
-          // 6) Insert con manejo de duplicado (ultra-robusto)
-          let ins;
-          try {
-            ins = await supabaseClient.from('personal').insert([datos]);
-          } catch (e2) {
-            ins = { error: e2 };
-          }
-          const { error } = ins;
+          // 5) Preparar objetos para el RPC
+          const bancoData = {
+            dba_banco_id: formData.get('dba_banco_id'),
+            dba_num_cuenta: formData.get('dba_num_cuenta')
+          };
+
+          // 6) Llamada RPC transaccional (hace ambos inserts en la BD)
+          const { error } = await supabaseClient.rpc('insertar_personal_completo', {
+            p_banco: bancoData,
+            p_personal: datos
+          });
 
           if (error) {
-            const code = (error.code ?? '').toString();
-            const status = error.status;
-            const joined = [
-              code,
-              error.message ?? '',
-              error.details ?? '',
-              error.hint ?? '',
-              JSON.stringify(error)
-            ].join(' | ').toLowerCase();
-
-            const isDuplicate =
-              code === '23505' ||
-              status === 409 ||
-              /duplicate/.test(joined) ||
-              /unique/.test(joined) ||
-              /per_num_doc/.test(joined);
-
-            if (isDuplicate) {
-              alert(DUP_MSG);
-            } else {
-              console.error('Insert error →', error);
-              alert('Error al guardar personal: ' + (error.message || ''));
-            }
+            console.error('RPC error →', error);
+            alert('Error al guardar: ' + (error.message || ''));
             return;
           }
 
@@ -406,19 +403,17 @@
         }
       });
     });
+
     // -------------- DOM SOLO NUMEROS ------------------------------------
-    // Restringe a dígitos, bloquea teclas no numéricas y pegado no numérico
     (function () {
       function getMax(el) {
         const n = parseInt(el.getAttribute('data-maxlength'), 10);
         return Number.isFinite(n) ? n : 9999;
       }
-
       const controlKeys = new Set([
         'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
         'ArrowLeft', 'ArrowRight', 'Home', 'End'
       ]);
-
       // Bloqueo por teclado
       document.addEventListener('keydown', (e) => {
         const el = e.target;
@@ -426,14 +421,13 @@
 
         const k = e.key;
         const modCombo = (e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(k.toLowerCase());
-        if (controlKeys.has(k) || modCombo) return; // permitir controles/copiar/pegar/cortar
+        if (controlKeys.has(k) || modCombo) return;
 
         const max = getMax(el);
         if (!/^\d$/.test(k) || el.value.length >= max) {
-          e.preventDefault(); // solo dígitos y no pasar del máximo
+          e.preventDefault();
         }
       });
-
       // Pegado: permitir solo dígitos y respetar largo
       document.addEventListener('paste', (e) => {
         const el = e.target;
@@ -444,13 +438,12 @@
         const max = getMax(el);
         const space = max - el.value.length;
 
-        e.preventDefault(); // siempre controlamos el pegado
+        e.preventDefault();
         if (space > 0 && digits) {
           el.value += digits.slice(0, space);
         }
       });
-
-      // Filtro de seguridad (por si algo se cuela: IME, autocompletado, etc.)
+      // Filtro de seguridad
       document.addEventListener('input', (e) => {
         const el = e.target;
         if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
@@ -461,29 +454,21 @@
       });
     })();
 
-
     // ------------------- DOM -- SOLO LETRAS ------------------------------
     (function () {
-      // Letras con soporte para español: tildes, diéresis, ñ/Ñ; espacios, guion y apóstrofo
       const allowed = /[A-Za-zÁÉÍÓÚÜáéíóúüÑñ\s'-]/g;
-
       function maxLen(el) {
         const n = parseInt(el.dataset.maxlength || el.maxLength || '100', 10);
         return Number.isFinite(n) ? n : 100;
       }
-
-      // Filtro general ante cualquier cambio (tecleo, autocompletar, IME, etc.)
       document.addEventListener('input', (e) => {
         const el = e.target;
         if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
 
         const m = maxLen(el);
-        // Quita todo lo que no sea "allowed"
         const cleaned = (el.value.match(allowed) || []).join('').slice(0, m);
         if (el.value !== cleaned) el.value = cleaned;
       });
-
-      // Controla el pegado para que solo entren caracteres permitidos y respete el máximo
       document.addEventListener('paste', (e) => {
         const el = e.target;
         if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
@@ -493,7 +478,7 @@
         const cleaned = (raw.match(allowed) || []).join('');
         const space = m - el.value.length;
 
-        e.preventDefault(); // manejamos el pegado manualmente
+        e.preventDefault();
         if (space > 0 && cleaned) {
           el.value += cleaned.slice(0, space);
         }
@@ -501,5 +486,4 @@
     })();
   </script>
 </body>
-
 </html>
