@@ -58,7 +58,7 @@
     <label>RUT (Opcional)
       <input type="file" id="per_pdf_rut_input" name="per_pdf_rut" accept="application/pdf,image/*">
     </label>
-    <label>Comprobante Banco*
+    <label>Certificado de Cuenta de Ahorros / Nequi / Daviplata *
       <input type="file" id="per_pdf_comprobante_banco_input" name="per_pdf_comprobante_banco"
         accept="application/pdf,image/*" required>
     </label>
@@ -110,7 +110,7 @@
     </label>
 
     <label>EPS
-      <select name="per_eps_id" id="epsSelect" required></select>
+      <select name="per_eps_id" id="epsSelect"></select>
     </label>
 
     <label>Fecha Nacimiento*
@@ -133,7 +133,7 @@
       <input type="text" name="per_localidad_barrio" maxlength="100" class="solo_letras" required>
     </label>
 
-    <label>Tipo de alimentación
+    <label>Tipo de alimentación*
       <select name="per_ali_id" id="alimentacionSelect" required></select>
     </label>
 
@@ -145,7 +145,7 @@
       <input type="text" name="per_estatura" maxlength="3" inputmode="numeric" class="digits-only" required>
     </label>
 
-    <label>Talla Camiseta
+    <label>Talla Camiseta*
       <select name="per_talla_camiseta" id="TallaCamisetaSelect" required>
         <option value="">-- Seleccione --</option>
         <option value="XS">XS</option>
@@ -159,9 +159,9 @@
       </select>
     </label>
 
-    <label>Talla de Pantalón
-      <select name="per_talla_pantalon" id="TallaPantalonSelect" required>
-        <option value="">-- Seleccione --</option>
+    <label>Talla de Pantalón (Opcional)
+      <select name="per_talla_pantalon" id="TallaPantalonSelect">
+        <option value="">00</option>
         <option value="20">20</option>
         <option value="22">22</option>
         <option value="24">24</option>
@@ -176,9 +176,9 @@
       </select>
     </label>
 
-    <label>Talla de Zapatos
-      <select name="per_talla_zapatos" id="TallaZapatosSelect" required>
-        <option value="">-- Seleccione --</option>
+    <label>Talla de Zapatos (Opcional)
+      <select name="per_talla_zapatos" id="TallaZapatosSelect">
+        <option value="">00</option>
         <option value="30">30</option>
         <option value="31">31</option>
         <option value="32">32</option>
@@ -219,9 +219,9 @@
     </label>
 
     <!-- Nivel de inglés -->
-    <label>Nivel de Inglés
+    <label>Nivel de Inglés (Opcional)
       <select name="per_nivel_ingles" id="per_nivel_ingles" required>
-        <option value="">-- Seleccione --</option>
+        <option value="">NA</option>
         <option value="NA">NA</option>
         <option value="A1">A1</option>
         <option value="A2">A2</option>
@@ -272,7 +272,7 @@
       if (error) throw error;
       return supabaseClient.storage.from(bucket).getPublicUrl(nombre).data.publicUrl;
     }
-    
+
     // --- Helper: usa RPC 'precheck_persona' para NO exponer tablas
       async function verificarElegibilidad(supabaseClient, doc) {
       const DUP_MSG  = "Tu cédula ya está en la Base de Datos, si quieres modificar algún dato por favor escribe por WhatsApp al 3046780278";
