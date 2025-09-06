@@ -272,40 +272,27 @@
       if (error) throw error;
       return supabaseClient.storage.from(bucket).getPublicUrl(nombre).data.publicUrl;
     }
-
-    // --- Helper: valida que la cédula esté en 'autorizados' y NO exista en 'personal'
-    async function verificarElegibilidad(supabaseClient, doc) {
+    
+    // --- Helper: usa RPC 'precheck_persona' para NO exponer tablas
+      async function verificarElegibilidad(supabaseClient, doc) {
       const DUP_MSG  = "Tu cédula ya está en la Base de Datos, si quieres modificar algún dato por favor escribe por WhatsApp al 3046780278";
       const AUTH_MSG = "Tu cédula no está autorizada aún para registrarte. Por favor espera a que te incluyan en la lista (autorizados).";
 
       const cedula = (doc || "").trim();
       if (!cedula) return { ok: false, msg: "Debes ingresar una cédula válida." };
 
-      // 1) ¿Está autorizado?
-      const { data: autorizado, error: errAuth } = await supabaseClient
-        .from('autorizados')
-        .select('id')
-        .eq('num_cedula', cedula)
-        .maybeSingle();
+      const { data, error } = await supabaseClient.rpc('precheck_persona', { p_doc: cedula });
 
-      if (errAuth) {
-        console.error('Error consultando autorizados:', errAuth);
+      if (error) {
+        console.error('Error en precheck_persona:', error);
         return { ok: false, msg: "Error validando autorización. Intenta de nuevo." };
       }
+
+      const autorizado = !!data?.autorizado;
+      const existe     = !!data?.existe;
+
       if (!autorizado) return { ok: false, msg: AUTH_MSG };
-
-      // 2) ¿Ya existe en personal?
-      const { data: existe, error: errPer } = await supabaseClient
-        .from('personal')
-        .select('per_id')
-        .eq('per_num_doc', cedula)
-        .maybeSingle();
-
-      if (errPer) {
-        console.error('Error consultando personal:', errPer);
-        return { ok: false, msg: "Error validando duplicado. Intenta de nuevo." };
-      }
-      if (existe) return { ok: false, msg: DUP_MSG };
+      if (existe)      return { ok: false, msg: DUP_MSG };
 
       return { ok: true, msg: "" };
     }
