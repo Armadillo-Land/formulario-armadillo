@@ -68,15 +68,14 @@
       <input type="file" id="per_pdf_cedula_input" name="per_pdf_cedula" accept="application/pdf,image/*" required>
     </label>
     <label>RUT (Opcional)
-      <input type="file" id="per_pdf_rut_input" name="per_pdf_rut" accept="application/pdf,image/*" required>
+      <input type="file" id="per_pdf_rut_input" name="per_pdf_rut" accept="application/pdf,image/*">
     </label>
     <label>Comprobante Banco*
       <input type="file" id="per_pdf_comprobante_banco_input" name="per_pdf_comprobante_banco"
         accept="application/pdf,image/*" required>
     </label>
     <label>Hoja de Vida (Opcional)
-      <input type="file" id="per_pdf_hoja_vida_input" name="per_pdf_hoja_vida" accept="application/pdf,image/*"
-        required>
+      <input type="file" id="per_pdf_hoja_vida_input" name="per_pdf_hoja_vida" accept="application/pdf,image/*">
     </label>
 
     <!-- Datos personales -->
@@ -98,7 +97,7 @@
       <input type="text" name="per_primer_nombre" maxlength="50" class="solo_letras" required>
     </label>
 
-    <label>Segundo Nombre
+    <label>Segundo Nombre (Opcional)
       <input type="text" name="per_segundo_nombre" maxlength="50" class="solo_letras">
     </label>
 
@@ -106,19 +105,19 @@
       <input type="text" name="per_primer_apellido" maxlength="50" class="solo_letras" required>
     </label>
 
-    <label>Segundo Apellido
+    <label>Segundo Apellido (Opcional)
       <input type="text" name="per_segundo_apellido" maxlength="50" class="solo_letras">
     </label>
 
-    <label>Teléfono Llamada*
-      <input type="text" name="per_telefono_llamada" maxlength="10" class="digits-only" required>
+    <label>Teléfono Llamada (Opcional)
+      <input type="text" name="per_telefono_llamada" maxlength="10" class="digits-only">
     </label>
 
     <label>Teléfono WhatsApp*
       <input type="text" name="per_telefono_whatsapp" maxlength="10" class="digits-only" required>
     </label>
 
-    <label>Género
+    <label>Género*
       <select name="per_genero_id" id="generoSelect" required></select>
     </label>
 
@@ -138,7 +137,7 @@
       <input type="text" name="per_direccion_residencia" maxlength="100" required>
     </label>
 
-    <label>Ciudad
+    <label>Ciudad*
       <select name="per_ciudad_id" id="ciudadSelect" required></select>
     </label>
 
@@ -226,10 +225,6 @@
       <select name="dba_banco_id" id="BancoSelect" required></select>
     </label>
 
-    <label>Tipo de Cuenta
-      <select name="dba_tcb_id" id="TipoCuentaSelect" required></select>
-    </label>
-
     <label>Número de Cuenta <small id="num_cuenta_comen"> (no se aceptan cuenta de terceros)</small>
       <input type="text" name="dba_num_cuenta" id="NumeroCuentaInput" maxlength="20" inputmode="numeric"
         class="digits-only" required>
@@ -262,8 +257,7 @@
       ciudades: { id: 'ciu_id', texto: 'ciu_nombre' },
       epss: { id: 'eps_id', texto: 'eps_nombre' },
       alimentacion: { id: 'ali_id', texto: 'ali_tipo_alimentacion' },
-      bancos: { id: 'ban_id', texto: 'ban_banco_nombre' },
-      tipo_cuenta_bancaria: { id: 'tcb_id', texto: 'tcb_tipo_cuenta' }
+      bancos: { id: 'ban_id', texto: 'ban_banco_nombre' }
     };
 
     async function cargarOpciones(tabla, selectId) {
@@ -283,7 +277,6 @@
       await cargarOpciones('epss', 'epsSelect');
       await cargarOpciones('alimentacion', 'alimentacionSelect');
       await cargarOpciones('bancos', 'BancoSelect');
-      await cargarOpciones('tipo_cuenta_bancaria', 'TipoCuentaSelect');
     }
 
     async function subirArchivo(bucket, archivo, nombre) {
@@ -337,7 +330,6 @@
           // 4) Insertar en datos_bancarios
           const bancoData = {
             dba_banco_id: formData.get('dba_banco_id'),
-            dba_tcb_id: formData.get('dba_tcb_id'),
             dba_num_cuenta: formData.get('dba_num_cuenta')
           };
           const { data: dbank, error: dberr } = await supabaseClient
@@ -347,7 +339,6 @@
           // 5) Preparar datos para personal
           const datos = Object.fromEntries(formData.entries());
           delete datos.dba_banco_id;
-          delete datos.dba_tcb_id;
           delete datos.dba_num_cuenta;
           delete datos.per_foto;
           delete datos.per_pdf_cedula;
