@@ -222,8 +222,7 @@
     <!-- Nivel de inglés -->
     <label>Nivel de Inglés (Opcional)
       <select name="per_nivel_ingles" id="per_nivel_ingles">
-        <option value="">NA</option>
-        <option value="NA">NA</option>
+        <option value="NO HABLO INGLES">NO HABLO INGLES</option>
         <option value="A1">A1</option>
         <option value="A2">A2</option>
         <option value="B1">B1</option>
@@ -276,8 +275,8 @@
 
     // --- Helper: usa RPC 'precheck_persona' para NO exponer tablas
       async function verificarElegibilidad(supabaseClient, doc) {
-      const DUP_MSG  = "Tu cédula ya está en la Base de Datos, si quieres modificar algún dato por favor escribe por WhatsApp al 3046780278";
-      const AUTH_MSG = "Tu cédula no está autorizada aún para registrarte. Por favor espera a que te incluyan en la lista (autorizados).";
+      const DUP_MSG  = "Ya llenaste este formulario en el pasado, si quieres modificar algún dato por favor escribe por WhatsApp al 3122826844";
+      const AUTH_MSG = "Hola! Aún no perteneces a nuestra base de datos, si aún no has realizado entrevista puedes realizarla en el siguiente link https://linktr.ee/operadoresarmadillo o escribe al 3122826844";
 
       const cedula = (doc || "").trim();
       if (!cedula) return { ok: false, msg: "Debes ingresar una cédula válida." };
