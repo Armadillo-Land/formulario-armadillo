@@ -43,6 +43,7 @@
 
 <body>
   <h2>Formulario de Registro Personal</h2>
+  <small>Solo pueden enviar el formulario los usuarios autorizados</small>
 
   <form id="personalForm">
     <!-- Status por defecto (también se forzará en JS) -->
@@ -109,7 +110,7 @@
       <select name="per_genero_id" id="generoSelect" required></select>
     </label>
 
-    <label>EPS
+    <label>EPS (Opcional)
       <select name="per_eps_id" id="epsSelect"></select>
     </label>
 
@@ -137,7 +138,7 @@
       <select name="per_ali_id" id="alimentacionSelect" required></select>
     </label>
 
-    <label>Alergias*
+    <label>Alergias (Opcional)
       <input type="text" name="per_alergias" maxlength="100" class="solo_letras">
     </label>
 
@@ -209,18 +210,18 @@
     </label>
 
     <!-- Datos bancarios -->
-    <label>Banco
+    <label>Banco*
       <select name="dba_banco_id" id="BancoSelect" required></select>
     </label>
 
-    <label>Número de Cuenta <small id="num_cuenta_comen"> (no se aceptan cuenta de terceros)</small>
+    <label>Número de Cuenta* <small id="num_cuenta_comen"> (no se aceptan cuenta de terceros)</small>
       <input type="text" name="dba_num_cuenta" id="NumeroCuentaInput" maxlength="20" inputmode="numeric"
         class="digits-only" required>
     </label>
 
     <!-- Nivel de inglés -->
     <label>Nivel de Inglés (Opcional)
-      <select name="per_nivel_ingles" id="per_nivel_ingles" required>
+      <select name="per_nivel_ingles" id="per_nivel_ingles">
         <option value="">NA</option>
         <option value="NA">NA</option>
         <option value="A1">A1</option>
