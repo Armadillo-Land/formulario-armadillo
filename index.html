@@ -1,484 +1,317 @@
-<!DOCTYPE html>
-<html lang="es">
+<script>
+  const SUPABASE_URL = 'https://mjtrmkftgeebbrkqtdou.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qdHJta2Z0Z2VlYmJya3F0ZG91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0ODk3MjEsImV4cCI6MjA3MjA2NTcyMX0.zNp-JkJ0xJioGLqV2M2DmijLfUulPgMC8tbEhf8ZjZk';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Formulario Personal</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background: #f9f9f9;
+  const camposSelect = {
+    generos: { id: 'gen_id', texto: 'gen_nombre' },
+    ciudades: { id: 'ciu_id', texto: 'ciu_nombre' },
+    epss: { id: 'eps_id', texto: 'eps_nombre' },
+    alimentacion: { id: 'ali_id', texto: 'ali_tipo_alimentacion' },
+    bancos: { id: 'ban_id', texto: 'ban_banco_nombre' }
+  };
+
+  async function cargarOpciones(tabla, selectId) {
+    const cfg = camposSelect[tabla];
+    if (!cfg) return;
+    const { data, error } = await supabaseClient
+      .from(tabla).select(`${cfg.id}, ${cfg.texto}`).order(cfg.texto, { ascending: true });
+    if (error) { console.error(error); return; }
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = `<option value="">-- Seleccione --</option>`;
+    data.forEach(r => sel.innerHTML += `<option value="${r[cfg.id]}">${r[cfg.texto]}</option>`);
+  }
+
+  async function inicializarSelects() {
+    await cargarOpciones('generos', 'generoSelect');
+    await cargarOpciones('ciudades', 'ciudadSelect');
+    await cargarOpciones('epss', 'epsSelect');
+    await cargarOpciones('alimentacion', 'alimentacionSelect');
+    await cargarOpciones('bancos', 'BancoSelect');
+  }
+
+  // ------- utilidades de validación y errores ----------
+  const MAX_FILE_MB = 20; // ajusta este límite si lo necesitas
+  function bytesToMB(n) { return (n / (1024 * 1024)).toFixed(1); }
+
+  function validarArchivo(file, etiqueta, opts = {}) {
+    if (!file) return { ok: true };
+    const max = (opts.maxMB || MAX_FILE_MB);
+    if (file.size > max * 1024 * 1024) {
+      return { ok: false, msg: `El archivo "${etiqueta}" pesa ${bytesToMB(file.size)} MB y el límite es ${max} MB.` };
     }
-    form {
-      max-width: 800px;
-      margin: auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 10px;
+    if (opts.accept && !opts.accept.some(m => file.type.startsWith(m) || file.name.toLowerCase().endsWith(m))) {
+      return { ok: false, msg: `El archivo de "${etiqueta}" no tiene un formato permitido.` };
     }
-    label {
-      display: block;
-      margin-top: 15px;
+    return { ok: true };
+  }
+
+  function explicarError(err) {
+    const msg = (err && (err.message || err.error_description || err.error || String(err))) || 'Error desconocido';
+    const lower = msg.toLowerCase();
+    if (lower.includes('payload') || lower.includes('413')) {
+      return 'El archivo es demasiado pesado para subir.';
     }
-    input, select {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
+    if (lower.includes('permission') || lower.includes('rls') || lower.includes('policy')) {
+      return 'Permiso denegado por políticas de seguridad (RLS).';
     }
-    button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      background: #0077cc;
-      color: #fff;
-      border: none;
-      cursor: pointer;
+    if (lower.includes('bucket') || lower.includes('storage')) {
+      return 'No se pudo subir a Storage (bucket). Verifica que el bucket exista y permita subida.';
     }
-    button:hover { background: #005fa3; }
-    button[disabled] { opacity: .6; cursor: not-allowed; }
-  </style>
-</head>
+    return msg;
+  }
 
-<body>
-  <h2>Formulario de Registro Personal</h2>
-  <small>Solo pueden enviar el formulario los usuarios autorizados</small>
+  async function subirArchivo(bucket, archivo, nombre) {
+    const { error } = await supabaseClient.storage.from(bucket).upload(nombre, archivo, { upsert: true });
+    if (error) throw error;
+    return supabaseClient.storage.from(bucket).getPublicUrl(nombre).data.publicUrl;
+  }
 
-  <form id="personalForm">
-    <!-- Status por defecto (también se forzará en JS) -->
-    <input type="hidden" name="per_status_personal" value="1">
+  // --- Helper: usa RPC 'precheck_persona' para NO exponer tablas
+  async function verificarElegibilidad(supabaseClient, doc) {
+    const DUP_MSG  = "Ya llenaste este formulario en el pasado, si quieres modificar algún dato por favor escribe por WhatsApp al 3122826844";
+    const AUTH_MSG = "Hola! Aún no perteneces a nuestra base de datos, si aún no has realizado entrevista puedes realizarla en el siguiente link https://linktr.ee/operadoresarmadillo o escribe al 3122826844";
 
-    <!-- Archivos -->
-    <label>Foto personal*
-      <input type="file" id="per_foto_input" name="per_foto" accept="image/*" required>
-    </label>
-    <label>Imagen Cédula*
-      <input type="file" id="per_pdf_cedula_input" name="per_pdf_cedula" accept="application/pdf,image/*" required>
-    </label>
-    <label>RUT (Opcional)
-      <input type="file" id="per_pdf_rut_input" name="per_pdf_rut" accept="application/pdf,image/*">
-    </label>
-    <label>Certificado de Cuenta de Ahorros / Nequi / Daviplata *
-      <input type="file" id="per_pdf_comprobante_banco_input" name="per_pdf_comprobante_banco"
-        accept="application/pdf,image/*" required>
-    </label>
-    <label>Hoja de Vida (Opcional)
-      <input type="file" id="per_pdf_hoja_vida_input" name="per_pdf_hoja_vida" accept="application/pdf,image/*">
-    </label>
+    const cedula = (doc || "").trim();
+    if (!cedula) return { ok: false, msg: "Debes ingresar una cédula válida." };
 
-    <!-- Datos personales -->
-    <label>Tipo Documento*
-      <select name="per_tipo_doc" id="tipo_documento_Select" required>
-        <option value="">-- Seleccione --</option>
-        <option value="CC">CC – Cédula de Ciudadanía</option>
-        <option value="PPT">PPT – Permiso por Protección Temporal</option>
-      </select>
-    </label>
+    const { data, error } = await supabaseClient.rpc('precheck_persona', { p_doc: cedula });
 
-    <label>Cédula*
-      <!-- si en tu BD subiste a varchar(20), cambia maxlength a 20 -->
-      <input type="text" name="per_num_doc" maxlength="10" inputmode="numeric" pattern="\d{6,10}" class="digits-only"
-        required>
-    </label>
-
-    <label>Primer Nombre*
-      <input type="text" name="per_primer_nombre" maxlength="50" class="solo_letras" required>
-    </label>
-
-    <label>Segundo Nombre (Opcional)
-      <input type="text" name="per_segundo_nombre" maxlength="50" class="solo_letras">
-    </label>
-
-    <label>Primer Apellido*
-      <input type="text" name="per_primer_apellido" maxlength="50" class="solo_letras" required>
-    </label>
-
-    <label>Segundo Apellido (Opcional)
-      <input type="text" name="per_segundo_apellido" maxlength="50" class="solo_letras">
-    </label>
-
-    <label>Teléfono Llamada (Opcional)
-      <input type="text" name="per_telefono_llamada" maxlength="10" class="digits-only">
-    </label>
-
-    <label>Teléfono WhatsApp*
-      <input type="text" name="per_telefono_whatsapp" maxlength="10" class="digits-only" required>
-    </label>
-
-    <label>Género*
-      <select name="per_genero_id" id="generoSelect" required></select>
-    </label>
-
-    <label>EPS (Opcional)
-      <select name="per_eps_id" id="epsSelect"></select>
-    </label>
-
-    <label>Fecha Nacimiento*
-      <input type="date" name="per_fecha_nacimiento" id="per_fecha_nacimiento" required>
-    </label>
-
-    <label>Correo*
-      <input type="email" name="per_correo" maxlength="100" required>
-    </label>
-
-    <label>Dirección de residencia*
-      <input type="text" name="per_direccion_residencia" maxlength="100" required>
-    </label>
-
-    <label>Ciudad*
-      <select name="per_ciudad_id" id="ciudadSelect" required></select>
-    </label>
-
-    <label>Localidad o Barrio*
-      <input type="text" name="per_localidad_barrio" maxlength="100" class="solo_letras" required>
-    </label>
-
-    <label>Tipo de alimentación*
-      <select name="per_ali_id" id="alimentacionSelect" required></select>
-    </label>
-
-    <label>Alergias (Opcional)
-      <input type="text" name="per_alergias" maxlength="100" class="solo_letras">
-    </label>
-
-    <label>Estatura(cm)*
-      <input type="text" name="per_estatura" maxlength="3" inputmode="numeric" class="digits-only" required>
-    </label>
-
-    <label>Talla Camiseta*
-      <select name="per_talla_camiseta" id="TallaCamisetaSelect" required>
-        <option value="">-- Seleccione --</option>
-        <option value="XS">XS</option>
-        <option value="S">S</option>
-        <option value="M">M</option>
-        <option value="L">L</option>
-        <option value="XL">XL</option>
-        <option value="2XL">2XL</option>
-        <option value="3XL">3XL</option>
-        <option value="4XL">4XL</option>
-      </select>
-    </label>
-
-    <label>Talla de Pantalón (Opcional)
-      <select name="per_talla_pantalon" id="TallaPantalonSelect">
-        <option value="">00</option>
-        <option value="04">04</option>
-        <option value="06">06</option>
-        <option value="08">08</option>
-        <option value="10">10</option>
-        <option value="12">12</option>
-        <option value="14">14</option>
-        <option value="16">16</option>
-        <option value="18">18</option>
-        <option value="20">20</option>
-        <option value="22">22</option>
-        <option value="24">24</option>
-        <option value="26">26</option>
-        <option value="28">28</option>
-        <option value="30">30</option>
-        <option value="32">32</option>
-        <option value="34">34</option>
-        <option value="36">36</option>
-        <option value="38">38</option>
-        <option value="40">40</option>
-      </select>
-    </label>
-
-    <label>Talla de Zapatos (Opcional)
-      <select name="per_talla_zapatos" id="TallaZapatosSelect">
-        <option value="">00</option>
-        <option value="30">30</option>
-        <option value="31">31</option>
-        <option value="32">32</option>
-        <option value="33">33</option>
-        <option value="34">34</option>
-        <option value="35">35</option>
-        <option value="36">36</option>
-        <option value="37">37</option>
-        <option value="38">38</option>
-        <option value="39">39</option>
-        <option value="40">40</option>
-        <option value="41">41</option>
-        <option value="42">42</option>
-        <option value="43">43</option>
-        <option value="44">44</option>
-        <option value="45">45</option>
-      </select>
-    </label>
-
-    <label>Nombre contacto emergencia*
-      <input type="text" name="per_nombre_emergencia" maxlength="100" class="solo_letras" required>
-    </label>
-
-    <label>Teléfono contacto emergencia*
-      <!-- si tu BD tiene varchar(10), cambia a maxlength=10 -->
-      <input type="text" name="per_telefono_contacto_emergencia" maxlength="10" inputmode="numeric" class="digits-only"
-        required>
-    </label>
-
-    <!-- Datos bancarios -->
-    <label>Banco*
-      <select name="dba_banco_id" id="BancoSelect" required></select>
-    </label>
-
-    <label>Número de Cuenta* <small id="num_cuenta_comen"> (no se aceptan cuenta de terceros)</small>
-      <input type="text" name="dba_num_cuenta" id="NumeroCuentaInput" maxlength="20" inputmode="numeric"
-        class="digits-only" required>
-    </label>
-
-    <!-- Nivel de inglés -->
-    <label>Nivel de Inglés (Opcional)
-      <select name="per_nivel_ingles" id="per_nivel_ingles">
-        <option value="NO HABLO INGLES">NO HABLO INGLES</option>
-        <option value="A1">A1</option>
-        <option value="A2">A2</option>
-        <option value="B1">B1</option>
-        <option value="B2">B2</option>
-        <option value="C1">C1</option>
-        <option value="C2">C2</option>
-      </select>
-    </label>
-
-    <button type="submit">Registrar</button>
-  </form>
-
-  <script>
-    const SUPABASE_URL = 'https://mjtrmkftgeebbrkqtdou.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qdHJta2Z0Z2VlYmJya3F0ZG91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0ODk3MjEsImV4cCI6MjA3MjA2NTcyMX0.zNp-JkJ0xJioGLqV2M2DmijLfUulPgMC8tbEhf8ZjZk';
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    const camposSelect = {
-      generos: { id: 'gen_id', texto: 'gen_nombre' },
-      ciudades: { id: 'ciu_id', texto: 'ciu_nombre' },
-      epss: { id: 'eps_id', texto: 'eps_nombre' },
-      alimentacion: { id: 'ali_id', texto: 'ali_tipo_alimentacion' },
-      bancos: { id: 'ban_id', texto: 'ban_banco_nombre' }
-    };
-
-    async function cargarOpciones(tabla, selectId) {
-      const cfg = camposSelect[tabla];
-      if (!cfg) return;
-      const { data, error } = await supabaseClient
-        .from(tabla).select(`${cfg.id}, ${cfg.texto}`).order(cfg.texto, { ascending: true });
-      if (error) { console.error(error); return; }
-      const sel = document.getElementById(selectId);
-      sel.innerHTML = `<option value="">-- Seleccione --</option>`;
-      data.forEach(r => sel.innerHTML += `<option value="${r[cfg.id]}">${r[cfg.texto]}</option>`);
+    if (error) {
+      console.error('Error en precheck_persona:', error);
+      return { ok: false, msg: "Error validando autorización. Intenta de nuevo." };
     }
 
-    async function inicializarSelects() {
-      await cargarOpciones('generos', 'generoSelect');
-      await cargarOpciones('ciudades', 'ciudadSelect');
-      await cargarOpciones('epss', 'epsSelect');
-      await cargarOpciones('alimentacion', 'alimentacionSelect');
-      await cargarOpciones('bancos', 'BancoSelect');
-    }
+    const autorizado = !!data?.autorizado;
+    const existe     = !!data?.existe;
 
-    async function subirArchivo(bucket, archivo, nombre) {
-      const { error } = await supabaseClient.storage.from(bucket).upload(nombre, archivo, { upsert: true });
-      if (error) throw error;
-      return supabaseClient.storage.from(bucket).getPublicUrl(nombre).data.publicUrl;
-    }
+    if (!autorizado) return { ok: false, msg: AUTH_MSG };
+    if (existe)      return { ok: false, msg: DUP_MSG };
 
-    // --- Helper: usa RPC 'precheck_persona' para NO exponer tablas
-      async function verificarElegibilidad(supabaseClient, doc) {
-      const DUP_MSG  = "Ya llenaste este formulario en el pasado, si quieres modificar algún dato por favor escribe por WhatsApp al 3122826844";
-      const AUTH_MSG = "Hola! Aún no perteneces a nuestra base de datos, si aún no has realizado entrevista puedes realizarla en el siguiente link https://linktr.ee/operadoresarmadillo o escribe al 3122826844";
+    return { ok: true, msg: "" };
+  }
 
-      const cedula = (doc || "").trim();
-      if (!cedula) return { ok: false, msg: "Debes ingresar una cédula válida." };
+  document.addEventListener('DOMContentLoaded', async () => {
+    await inicializarSelects();
 
-      const { data, error } = await supabaseClient.rpc('precheck_persona', { p_doc: cedula });
+    document.getElementById('personalForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const btn = form.querySelector('button[type="submit"]');
 
-      if (error) {
-        console.error('Error en precheck_persona:', error);
-        return { ok: false, msg: "Error validando autorización. Intenta de nuevo." };
-      }
+      if (btn.disabled) return; // anti-doble click
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+      btn.setAttribute('aria-busy', 'true');
 
-      const autorizado = !!data?.autorizado;
-      const existe     = !!data?.existe;
+      try {
+        if (!navigator.onLine) {
+          alert('Sin conexión a internet. Por favor verifica tu red e inténtalo de nuevo.');
+          return;
+        }
 
-      if (!autorizado) return { ok: false, msg: AUTH_MSG };
-      if (existe)      return { ok: false, msg: DUP_MSG };
+        const formData = new FormData(form);
 
-      return { ok: true, msg: "" };
-    }
+        // 1) Validar fecha
+        const fechaStr = formData.get('per_fecha_nacimiento');
+        const fechaNacimiento = new Date(fechaStr);
+        if (!fechaStr || isNaN(fechaNacimiento.getTime())) {
+          alert("Debes ingresar una fecha de nacimiento válida.");
+          return;
+        }
+        if (fechaNacimiento > new Date()) {
+          alert("La fecha de nacimiento no puede ser en el futuro.");
+          return;
+        }
 
-    document.addEventListener('DOMContentLoaded', async () => {
-      await inicializarSelects();
+        // 2) Validación básica del documento antes del precheck
+        const doc = (formData.get('per_num_doc') || '').trim();
+        if (!/^\d{6,10}$/.test(doc)) {
+          alert('La cédula debe tener entre 6 y 10 dígitos.');
+          return;
+        }
 
-      document.getElementById('personalForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const form = e.target;
-        const btn = form.querySelector('button[type="submit"]');
+        // 3) Pre-check contra lista blanca y duplicados (antes de subir archivos)
+        const eleg = await verificarElegibilidad(supabaseClient, doc);
+        if (!eleg.ok) { alert(eleg.msg); return; }
 
-        // evita doble submit
-        if (btn.disabled) return;
-        const originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = 'Enviando...';
-        btn.setAttribute('aria-busy', 'true');
-
-        try {
-          const formData = new FormData(form);
-
-          // 1) Validar fecha
-          const fechaNacimiento = new Date(formData.get('per_fecha_nacimiento'));
-          if (fechaNacimiento > new Date()) {
-            alert("La fecha de nacimiento no puede ser en el futuro.");
+        // 4) Validar archivos localmente
+        const filesCfg = [
+          { name: 'per_foto',                    etiqueta: 'Foto personal',                           required: true,  accept: ['image/'] },
+          { name: 'per_pdf_cedula',              etiqueta: 'Imagen Cédula',                           required: true,  accept: ['application/pdf','image/'] },
+          { name: 'per_pdf_rut',                 etiqueta: 'RUT',                                      required: false, accept: ['application/pdf','image/'] },
+          { name: 'per_pdf_comprobante_banco',   etiqueta: 'Certificado de Cuenta',                    required: true,  accept: ['application/pdf','image/'] },
+          { name: 'per_pdf_hoja_vida',           etiqueta: 'Hoja de Vida',                             required: false, accept: ['application/pdf','image/'] },
+        ];
+        for (const f of filesCfg) {
+          const file = formData.get(f.name);
+          if (f.required && (!file || !file.name)) {
+            alert(`Falta adjuntar: ${f.etiqueta}.`);
             return;
           }
+          const v = validarArchivo(file && file.name ? file : null, f.etiqueta, { accept: f.accept });
+          if (!v.ok) { alert(v.msg); return; }
+        }
 
-          // 2) Pre-check contra lista blanca y duplicados (antes de subir archivos)
-          const doc = (formData.get('per_num_doc') || '').trim();
-          const eleg = await verificarElegibilidad(supabaseClient, doc);
-          if (!eleg.ok) { alert(eleg.msg); return; }
-
-          // 3) Subir archivos
-          const fileFields = ['per_foto', 'per_pdf_cedula', 'per_pdf_rut', 'per_pdf_comprobante_banco', 'per_pdf_hoja_vida'];
-          const urls = {};
-          for (const f of fileFields) {
-            const file = formData.get(f);
-            if (file && file.name) {
-              const nombre = `${f}_${Date.now()}_${file.name}`;
-              urls[f] = await subirArchivo('personalfiles', file, nombre);
+        // 5) Subir archivos
+        const urls = {};
+        for (const f of filesCfg) {
+          const file = formData.get(f.name);
+          if (file && file.name) {
+            const nombre = `${f.name}_${Date.now()}_${file.name}`.replace(/\s+/g, '_');
+            try {
+              urls[f.name] = await subirArchivo('personalfiles', file, nombre);
+            } catch (err) {
+              console.error('Storage upload error', err);
+              throw new Error(`No se pudo subir "${f.etiqueta}": ${explicarError(err)}`);
             }
           }
+        }
 
-          // 4) Preparar datos para el RPC
-          const datos = Object.fromEntries(formData.entries());
-          delete datos.dba_banco_id;
-          delete datos.dba_num_cuenta;
-          delete datos.per_foto;
-          delete datos.per_pdf_cedula;
-          delete datos.per_pdf_rut;
-          delete datos.per_pdf_comprobante_banco;
-          delete datos.per_pdf_hoja_vida;
+        // 6) Preparar datos para el RPC
+        const datos = Object.fromEntries(formData.entries());
 
-          // valores por defecto obligatorios
-          datos.per_perfilamiento = 1;
-          datos.per_status_personal = 1;
+        // elimina campos que NO van en "personal"
+        delete datos.dba_banco_id;
+        delete datos.dba_num_cuenta;
+        delete datos.per_foto;
+        delete datos.per_pdf_cedula;
+        delete datos.per_pdf_rut;
+        delete datos.per_pdf_comprobante_banco;
+        delete datos.per_pdf_hoja_vida;
 
-          // Insertar URLs de los archivos
-          if (urls.per_foto) datos.per_foto = urls.per_foto;
-          if (urls.per_pdf_cedula) datos.per_pdf_cedula = urls.per_pdf_cedula;
-          if (urls.per_pdf_rut) datos.per_pdf_rut = urls.per_pdf_rut;
-          if (urls.per_pdf_comprobante_banco) datos.per_pdf_comprobante_banco = urls.per_pdf_comprobante_banco;
-          if (urls.per_pdf_hoja_vida) datos.per_pdf_hoja_vida = urls.per_pdf_hoja_vida;
-
-          for (const k in datos) if (datos[k] === '') datos[k] = null;
-
-          // 5) Preparar objetos para el RPC
-          const bancoData = {
-            dba_banco_id: formData.get('dba_banco_id'),
-            dba_num_cuenta: formData.get('dba_num_cuenta')
-          };
-
-          // 6) Llamada RPC transaccional (hace ambos inserts en la BD)
-          const { error } = await supabaseClient.rpc('insertar_personal_completo', {
-            p_banco: bancoData,
-            p_personal: datos
-          });
-
-          if (error) {
-            console.error('RPC error →', error);
-            alert('Error al guardar: ' + (error.message || ''));
-            return;
+        // normaliza strings vacíos y recorta
+        for (const k in datos) {
+          if (typeof datos[k] === 'string') {
+            const t = datos[k].trim();
+            datos[k] = t === '' ? null : t;
           }
-
-          alert('✅ Registro guardado correctamente');
-          form.reset();
-
-        } finally {
-          // re-habilitar botón pase lo que pase
-          btn.disabled = false;
-          btn.textContent = originalText;
-          btn.removeAttribute('aria-busy');
         }
-      });
+
+        // valores por defecto obligatorios
+        datos.per_perfilamiento = 1;
+        datos.per_status_personal = 1;
+
+        // numéricos (IDs de select) → a entero o null
+        const intFields = ['per_genero_id','per_eps_id','per_ciudad_id','per_ali_id'];
+        for (const f of intFields) {
+          if (datos[f] != null) {
+            const n = parseInt(datos[f], 10);
+            datos[f] = Number.isFinite(n) ? n : null;
+          }
+        }
+
+        // Insertar URLs de los archivos
+        if (urls.per_foto) datos.per_foto = urls.per_foto;
+        if (urls.per_pdf_cedula) datos.per_pdf_cedula = urls.per_pdf_cedula;
+        if (urls.per_pdf_rut) datos.per_pdf_rut = urls.per_pdf_rut;
+        if (urls.per_pdf_comprobante_banco) datos.per_pdf_comprobante_banco = urls.per_pdf_comprobante_banco;
+        if (urls.per_pdf_hoja_vida) datos.per_pdf_hoja_vida = urls.per_pdf_hoja_vida;
+
+        // 7) Objeto banco para RPC
+        const bancoData = {
+          dba_banco_id: (() => {
+            const raw = formData.get('dba_banco_id');
+            if (raw == null || raw === '') return null;
+            const n = parseInt(raw, 10);
+            return Number.isFinite(n) ? n : null;
+          })(),
+          dba_num_cuenta: (formData.get('dba_num_cuenta') || '').trim() || null
+        };
+
+        // 8) Llamada RPC transaccional
+        const { error } = await supabaseClient.rpc('insertar_personal_completo', {
+          p_banco: bancoData,
+          p_personal: datos
+        });
+
+        if (error) {
+          console.error('RPC error →', error);
+          throw new Error(`Error al guardar: ${explicarError(error)}`);
+        }
+
+        alert('✅ Registro guardado correctamente');
+        form.reset();
+
+      } catch (err) {
+        console.error('Submit error', err);
+        alert(`⚠️ No pudimos completar el registro.\n\nDetalle: ${explicarError(err)}`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+        btn.removeAttribute('aria-busy');
+      }
     });
+  });
 
-    // -------------- DOM SOLO NUMEROS ------------------------------------
-    (function () {
-      function getMax(el) {
-        const n = parseInt(el.getAttribute('data-maxlength'), 10);
-        return Number.isFinite(n) ? n : 9999;
-      }
-      const controlKeys = new Set([
-        'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
-        'ArrowLeft', 'ArrowRight', 'Home', 'End'
-      ]);
-      // Bloqueo por teclado
-      document.addEventListener('keydown', (e) => {
-        const el = e.target;
-        if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
-
-        const k = e.key;
-        const modCombo = (e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(k.toLowerCase());
-        if (controlKeys.has(k) || modCombo) return;
-
-        const max = getMax(el);
-        if (!/^\d$/.test(k) || el.value.length >= max) {
-          e.preventDefault();
-        }
-      });
-      // Pegado: permitir solo dígitos y respetar largo
-      document.addEventListener('paste', (e) => {
-        const el = e.target;
-        if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
-
-        const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
-        const digits = raw.replace(/\D/g, '');
-        const max = getMax(el);
-        const space = max - el.value.length;
-
+  // -------------- DOM SOLO NUMEROS ------------------------------------
+  (function () {
+    function getMax(el) {
+      const n = parseInt(el.getAttribute('data-maxlength'), 10);
+      return Number.isFinite(n) ? n : 9999;
+    }
+    const controlKeys = new Set([
+      'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+      'ArrowLeft', 'ArrowRight', 'Home', 'End'
+    ]);
+    document.addEventListener('keydown', (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
+      const k = e.key;
+      const modCombo = (e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(k.toLowerCase());
+      if (controlKeys.has(k) || modCombo) return;
+      const max = getMax(el);
+      if (!/^\d$/.test(k) || el.value.length >= max) {
         e.preventDefault();
-        if (space > 0 && digits) {
-          el.value += digits.slice(0, space);
-        }
-      });
-      // Filtro de seguridad
-      document.addEventListener('input', (e) => {
-        const el = e.target;
-        if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
-
-        const max = getMax(el);
-        const cleaned = el.value.replace(/\D/g, '').slice(0, max);
-        if (el.value !== cleaned) el.value = cleaned;
-      });
-    })();
-
-    // ------------------- DOM -- SOLO LETRAS ------------------------------
-    (function () {
-      const allowed = /[A-Za-zÁÉÍÓÚÜáéíóúüÑñ\s'-]/g;
-      function maxLen(el) {
-        const n = parseInt(el.dataset.maxlength || el.maxLength || '100', 10);
-        return Number.isFinite(n) ? n : 100;
       }
-      document.addEventListener('input', (e) => {
-        const el = e.target;
-        if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
+    });
+    document.addEventListener('paste', (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
+      const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
+      const digits = raw.replace(/\D/g, '');
+      const max = getMax(el);
+      const space = max - el.value.length;
+      e.preventDefault();
+      if (space > 0 && digits) {
+        el.value += digits.slice(0, space);
+      }
+    });
+    document.addEventListener('input', (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
+      const max = getMax(el);
+      const cleaned = el.value.replace(/\D/g, '').slice(0, max);
+      if (el.value !== cleaned) el.value = cleaned;
+    });
+  })();
 
-        const m = maxLen(el);
-        const cleaned = (el.value.match(allowed) || []).join('').slice(0, m);
-        if (el.value !== cleaned) el.value = cleaned;
-      });
-      document.addEventListener('paste', (e) => {
-        const el = e.target;
-        if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
-
-        const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
-        const m = maxLen(el);
-        const cleaned = (raw.match(allowed) || []).join('');
-        const space = m - el.value.length;
-
-        e.preventDefault();
-        if (space > 0 && cleaned) {
-          el.value += cleaned.slice(0, space);
-        }
-      });
-    })();
-  </script>
-</body>
-</html>
+  // ------------------- DOM -- SOLO LETRAS ------------------------------
+  (function () {
+    const allowed = /[A-Za-zÁÉÍÓÚÜáéíóúüÑñ\s'-]/g;
+    function maxLen(el) {
+      const n = parseInt(el.dataset.maxlength || el.maxLength || '100', 10);
+      return Number.isFinite(n) ? n : 100;
+    }
+    document.addEventListener('input', (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
+      const m = maxLen(el);
+      const cleaned = (el.value.match(allowed) || []).join('').slice(0, m);
+      if (el.value !== cleaned) el.value = cleaned;
+    });
+    document.addEventListener('paste', (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
+      const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
+      const m = maxLen(el);
+      const cleaned = (raw.match(allowed) || []).join('');
+      const space = m - el.value.length;
+      e.preventDefault();
+      if (space > 0 && cleaned) {
+        el.value += cleaned.slice(0, space);
+      }
+    });
+  })();
+</script>
