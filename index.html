@@ -242,7 +242,6 @@
 
     <button type="submit">Registrar</button>
   </form>
-
   <script>
     const SUPABASE_URL = 'https://mjtrmkftgeebbrkqtdou.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qdHJta2Z0Z2VlYmJya3F0ZG91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0ODk3MjEsImV4cCI6MjA3MjA2NTcyMX0.zNp-JkJ0xJioGLqV2M2DmijLfUulPgMC8tbEhf8ZjZk';
@@ -275,6 +274,37 @@
       await cargarOpciones('bancos', 'BancoSelect');
     }
 
+    // ------- utilidades de validación y errores ----------
+    const MAX_FILE_MB = 20; // ajusta este límite si lo necesitas
+    function bytesToMB(n) { return (n / (1024 * 1024)).toFixed(1); }
+
+    function validarArchivo(file, etiqueta, opts = {}) {
+      if (!file) return { ok: true };
+      const max = (opts.maxMB || MAX_FILE_MB);
+      if (file.size > max * 1024 * 1024) {
+        return { ok: false, msg: `El archivo "${etiqueta}" pesa ${bytesToMB(file.size)} MB y el límite es ${max} MB.` };
+      }
+      if (opts.accept && !opts.accept.some(m => file.type.startsWith(m) || file.name.toLowerCase().endsWith(m))) {
+        return { ok: false, msg: `El archivo de "${etiqueta}" no tiene un formato permitido.` };
+      }
+      return { ok: true };
+    }
+
+    function explicarError(err) {
+      const msg = (err && (err.message || err.error_description || err.error || String(err))) || 'Error desconocido';
+      const lower = msg.toLowerCase();
+      if (lower.includes('payload') || lower.includes('413')) {
+        return 'El archivo es demasiado pesado para subir.';
+      }
+      if (lower.includes('permission') || lower.includes('rls') || lower.includes('policy')) {
+        return 'Permiso denegado por políticas de seguridad (RLS).';
+      }
+      if (lower.includes('bucket') || lower.includes('storage')) {
+        return 'No se pudo subir a Storage (bucket). Verifica que el bucket exista y permita subida.';
+      }
+      return msg;
+    }
+
     async function subirArchivo(bucket, archivo, nombre) {
       const { error } = await supabaseClient.storage.from(bucket).upload(nombre, archivo, { upsert: true });
       if (error) throw error;
@@ -282,9 +312,9 @@
     }
 
     // --- Helper: usa RPC 'precheck_persona' para NO exponer tablas
-      async function verificarElegibilidad(supabaseClient, doc) {
-      const DUP_MSG  = "Ya llenaste este formulario en el pasado, si quieres modificar algún dato por favor escribe por WhatsApp al 3122826844";
-      const AUTH_MSG = "Hola! Aún no perteneces a nuestra base de datos, si aún no has realizado entrevista puedes realizarla en el siguiente link https://linktr.ee/operadoresarmadillo o escribe al 3122826844";
+    async function verificarElegibilidad(supabaseClient, doc) {
+      const DUP_MSG  = "Ya llenaste este formulario en el pasado, si quieres modificar algún dato por favor escribe por WhatsApp al 3122826844";
+      const AUTH_MSG = "Hola! Aún no perteneces a nuestra base de datos, si aún no has realizado entrevista puedes realizarla en el siguiente link https://linktr.ee/operadoresarmadillo o escribe al 3122826844";
 
       const cedula = (doc || "").trim();
       if (!cedula) return { ok: false, msg: "Debes ingresar una cédula válida." };
@@ -313,41 +343,80 @@
         const form = e.target;
         const btn = form.querySelector('button[type="submit"]');
 
-        // evita doble submit
-        if (btn.disabled) return;
+        if (btn.disabled) return; // anti-doble click
         const originalText = btn.textContent;
         btn.disabled = true;
         btn.textContent = 'Enviando...';
         btn.setAttribute('aria-busy', 'true');
 
         try {
+          if (!navigator.onLine) {
+            alert('Sin conexión a internet. Por favor verifica tu red e inténtalo de nuevo.');
+            return;
+          }
+
           const formData = new FormData(form);
 
           // 1) Validar fecha
-          const fechaNacimiento = new Date(formData.get('per_fecha_nacimiento'));
+          const fechaStr = formData.get('per_fecha_nacimiento');
+          const fechaNacimiento = new Date(fechaStr);
+          if (!fechaStr || isNaN(fechaNacimiento.getTime())) {
+            alert("Debes ingresar una fecha de nacimiento válida.");
+            return;
+          }
           if (fechaNacimiento > new Date()) {
             alert("La fecha de nacimiento no puede ser en el futuro.");
             return;
           }
 
-          // 2) Pre-check contra lista blanca y duplicados (antes de subir archivos)
+          // 2) Validación básica del documento antes del precheck
           const doc = (formData.get('per_num_doc') || '').trim();
+          if (!/^\d{6,10}$/.test(doc)) {
+            alert('La cédula debe tener entre 6 y 10 dígitos.');
+            return;
+          }
+
+          // 3) Pre-check contra lista blanca y duplicados (antes de subir archivos)
           const eleg = await verificarElegibilidad(supabaseClient, doc);
           if (!eleg.ok) { alert(eleg.msg); return; }
 
-          // 3) Subir archivos
-          const fileFields = ['per_foto', 'per_pdf_cedula', 'per_pdf_rut', 'per_pdf_comprobante_banco', 'per_pdf_hoja_vida'];
+          // 4) Validar archivos localmente
+          const filesCfg = [
+            { name: 'per_foto',                    etiqueta: 'Foto personal',                           required: true,  accept: ['image/'] },
+            { name: 'per_pdf_cedula',              etiqueta: 'Imagen Cédula',                           required: true,  accept: ['application/pdf','image/'] },
+            { name: 'per_pdf_rut',                 etiqueta: 'RUT',                                      required: false, accept: ['application/pdf','image/'] },
+            { name: 'per_pdf_comprobante_banco',   etiqueta: 'Certificado de Cuenta',                    required: true,  accept: ['application/pdf','image/'] },
+            { name: 'per_pdf_hoja_vida',           etiqueta: 'Hoja de Vida',                             required: false, accept: ['application/pdf','image/'] },
+          ];
+          for (const f of filesCfg) {
+            const file = formData.get(f.name);
+            if (f.required && (!file || !file.name)) {
+              alert(`Falta adjuntar: ${f.etiqueta}.`);
+              return;
+            }
+            const v = validarArchivo(file && file.name ? file : null, f.etiqueta, { accept: f.accept });
+            if (!v.ok) { alert(v.msg); return; }
+          }
+
+          // 5) Subir archivos
           const urls = {};
-          for (const f of fileFields) {
-            const file = formData.get(f);
+          for (const f of filesCfg) {
+            const file = formData.get(f.name);
             if (file && file.name) {
-              const nombre = `${f}_${Date.now()}_${file.name}`;
-              urls[f] = await subirArchivo('personalfiles', file, nombre);
+              const nombre = `${f.name}_${Date.now()}_${file.name}`.replace(/\s+/g, '_');
+              try {
+                urls[f.name] = await subirArchivo('personalfiles', file, nombre);
+              } catch (err) {
+                console.error('Storage upload error', err);
+                throw new Error(`No se pudo subir "${f.etiqueta}": ${explicarError(err)}`);
+              }
             }
           }
 
-          // 4) Preparar datos para el RPC
+          // 6) Preparar datos para el RPC
           const datos = Object.fromEntries(formData.entries());
+
+          // elimina campos que NO van en "personal"
           delete datos.dba_banco_id;
           delete datos.dba_num_cuenta;
           delete datos.per_foto;
@@ -356,9 +425,26 @@
           delete datos.per_pdf_comprobante_banco;
           delete datos.per_pdf_hoja_vida;
 
+          // normaliza strings vacíos y recorta
+          for (const k in datos) {
+            if (typeof datos[k] === 'string') {
+              const t = datos[k].trim();
+              datos[k] = t === '' ? null : t;
+            }
+          }
+
           // valores por defecto obligatorios
           datos.per_perfilamiento = 1;
           datos.per_status_personal = 1;
+
+          // numéricos (IDs de select) → a entero o null
+          const intFields = ['per_genero_id','per_eps_id','per_ciudad_id','per_ali_id'];
+          for (const f of intFields) {
+            if (datos[f] != null) {
+              const n = parseInt(datos[f], 10);
+              datos[f] = Number.isFinite(n) ? n : null;
+            }
+          }
 
           // Insertar URLs de los archivos
           if (urls.per_foto) datos.per_foto = urls.per_foto;
@@ -367,15 +453,18 @@
           if (urls.per_pdf_comprobante_banco) datos.per_pdf_comprobante_banco = urls.per_pdf_comprobante_banco;
           if (urls.per_pdf_hoja_vida) datos.per_pdf_hoja_vida = urls.per_pdf_hoja_vida;
 
-          for (const k in datos) if (datos[k] === '') datos[k] = null;
-
-          // 5) Preparar objetos para el RPC
+          // 7) Objeto banco para RPC
           const bancoData = {
-            dba_banco_id: formData.get('dba_banco_id'),
-            dba_num_cuenta: formData.get('dba_num_cuenta')
+            dba_banco_id: (() => {
+              const raw = formData.get('dba_banco_id');
+              if (raw == null || raw === '') return null;
+              const n = parseInt(raw, 10);
+              return Number.isFinite(n) ? n : null;
+            })(),
+            dba_num_cuenta: (formData.get('dba_num_cuenta') || '').trim() || null
           };
 
-          // 6) Llamada RPC transaccional (hace ambos inserts en la BD)
+          // 8) Llamada RPC transaccional
           const { error } = await supabaseClient.rpc('insertar_personal_completo', {
             p_banco: bancoData,
             p_personal: datos
@@ -383,15 +472,16 @@
 
           if (error) {
             console.error('RPC error →', error);
-            alert('Error al guardar: ' + (error.message || ''));
-            return;
+            throw new Error(`Error al guardar: ${explicarError(error)}`);
           }
 
           alert('✅ Registro guardado correctamente');
           form.reset();
 
+        } catch (err) {
+          console.error('Submit error', err);
+          alert(`⚠️ No pudimos completar el registro.\n\nDetalle: ${explicarError(err)}`);
         } finally {
-          // re-habilitar botón pase lo que pase
           btn.disabled = false;
           btn.textContent = originalText;
           btn.removeAttribute('aria-busy');
@@ -409,40 +499,32 @@
         'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
         'ArrowLeft', 'ArrowRight', 'Home', 'End'
       ]);
-      // Bloqueo por teclado
       document.addEventListener('keydown', (e) => {
         const el = e.target;
         if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
-
         const k = e.key;
         const modCombo = (e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(k.toLowerCase());
         if (controlKeys.has(k) || modCombo) return;
-
         const max = getMax(el);
         if (!/^\d$/.test(k) || el.value.length >= max) {
           e.preventDefault();
         }
       });
-      // Pegado: permitir solo dígitos y respetar largo
       document.addEventListener('paste', (e) => {
         const el = e.target;
         if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
-
         const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
         const digits = raw.replace(/\D/g, '');
         const max = getMax(el);
         const space = max - el.value.length;
-
         e.preventDefault();
         if (space > 0 && digits) {
           el.value += digits.slice(0, space);
         }
       });
-      // Filtro de seguridad
       document.addEventListener('input', (e) => {
         const el = e.target;
         if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
-
         const max = getMax(el);
         const cleaned = el.value.replace(/\D/g, '').slice(0, max);
         if (el.value !== cleaned) el.value = cleaned;
@@ -459,7 +541,6 @@
       document.addEventListener('input', (e) => {
         const el = e.target;
         if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
-
         const m = maxLen(el);
         const cleaned = (el.value.match(allowed) || []).join('').slice(0, m);
         if (el.value !== cleaned) el.value = cleaned;
@@ -467,12 +548,10 @@
       document.addEventListener('paste', (e) => {
         const el = e.target;
         if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
-
         const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
         const m = maxLen(el);
         const cleaned = (raw.match(allowed) || []).join('');
         const space = m - el.value.length;
-
         e.preventDefault();
         if (space > 0 && cleaned) {
           el.value += cleaned.slice(0, space);
@@ -480,5 +559,7 @@
       });
     })();
   </script>
+
+  
 </body>
 </html>
