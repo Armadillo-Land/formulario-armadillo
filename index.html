@@ -12,6 +12,7 @@
       padding: 20px;
       background: #f9f9f9;
     }
+
     form {
       max-width: 800px;
       margin: auto;
@@ -19,15 +20,19 @@
       padding: 20px;
       border-radius: 10px;
     }
+
     label {
       display: block;
       margin-top: 15px;
     }
-    input, select {
+
+    input,
+    select {
       width: 100%;
       padding: 8px;
       margin-top: 5px;
     }
+
     button {
       margin-top: 20px;
       padding: 10px 20px;
@@ -36,8 +41,15 @@
       border: none;
       cursor: pointer;
     }
-    button:hover { background: #005fa3; }
-    button[disabled] { opacity: .6; cursor: not-allowed; }
+
+    button:hover {
+      background: #005fa3;
+    }
+
+    button[disabled] {
+      opacity: .6;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 
@@ -242,349 +254,350 @@
 
     <button type="submit">Registrar</button>
   </form>
-    <script>
-      // ========= CONFIG =========
-      const SUPABASE_URL = 'https://mjtrmkftgeebbrkqtdou.supabase.co';
-      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qdHJta2Z0Z2VlYmJya3F0ZG91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0ODk3MjEsImV4cCI6MjA3MjA2NTcyMX0.zNp-JkJ0xJioGLqV2M2DmijLfUulPgMC8tbEhf8ZjZk';
-      const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  <script>
+    // ========= CONFIG =========
+    const SUPABASE_URL = 'https://mjtrmkftgeebbrkqtdou.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qdHJta2Z0Z2VlYmJya3F0ZG91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0ODk3MjEsImV4cCI6MjA3MjA2NTcyMX0.zNp-JkJ0xJioGLqV2M2DmijLfUulPgMC8tbEhf8ZjZk';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      // ========= SELECTS (catálogos) =========
-      const camposSelect = {
-        generos: { id: 'gen_id', texto: 'gen_nombre' },
-        ciudades: { id: 'ciu_id', texto: 'ciu_nombre' },
-        epss: { id: 'eps_id', texto: 'eps_nombre' },
-        alimentacion: { id: 'ali_id', texto: 'ali_tipo_alimentacion' },
-        bancos: { id: 'ban_id', texto: 'ban_banco_nombre' }
-      };
+    // ========= SELECTS (catálogos) =========
+    const camposSelect = {
+      generos: { id: 'gen_id', texto: 'gen_nombre' },
+      ciudades: { id: 'ciu_id', texto: 'ciu_nombre' },
+      epss: { id: 'eps_id', texto: 'eps_nombre' },
+      alimentacion: { id: 'ali_id', texto: 'ali_tipo_alimentacion' },
+      bancos: { id: 'ban_id', texto: 'ban_banco_nombre' }
+    };
 
-      async function cargarOpciones(tabla, selectId) {
-        const cfg = camposSelect[tabla];
-        if (!cfg) return;
-        const { data, error } = await supabaseClient
-          .from(tabla).select(`${cfg.id}, ${cfg.texto}`).order(cfg.texto, { ascending: true });
-        if (error) { console.error(error); return; }
-        const sel = document.getElementById(selectId);
-        sel.innerHTML = `<option value="">-- Seleccione --</option>`;
-        data.forEach(r => sel.innerHTML += `<option value="${r[cfg.id]}">${r[cfg.texto]}</option>`);
+    async function cargarOpciones(tabla, selectId) {
+      const cfg = camposSelect[tabla];
+      if (!cfg) return;
+      const { data, error } = await supabaseClient
+        .from(tabla).select(`${cfg.id}, ${cfg.texto}`).order(cfg.texto, { ascending: true });
+      if (error) { console.error(error); return; }
+      const sel = document.getElementById(selectId);
+      sel.innerHTML = `<option value="">-- Seleccione --</option>`;
+      data.forEach(r => sel.innerHTML += `<option value="${r[cfg.id]}">${r[cfg.texto]}</option>`);
+    }
+
+    async function inicializarSelects() {
+      await cargarOpciones('generos', 'generoSelect');
+      await cargarOpciones('ciudades', 'ciudadSelect');
+      await cargarOpciones('epss', 'epsSelect');
+      await cargarOpciones('alimentacion', 'alimentacionSelect');
+      await cargarOpciones('bancos', 'BancoSelect');
+    }
+
+    // ========= VALIDACIONES / ERRORES =========
+    const MAX_FILE_MB = 20;
+    function bytesToMB(n) { return (n / (1024 * 1024)).toFixed(1); }
+
+    // Acepta por MIME o por extensión (.pdf), tolera application/octet-stream
+    function validarArchivo(file, etiqueta, opts = {}) {
+      if (!file) return { ok: true };
+
+      const max = opts.maxMB || MAX_FILE_MB;
+      if (file.size > max * 1024 * 1024) {
+        return { ok: false, msg: `El archivo "${etiqueta}" pesa ${bytesToMB(file.size)} MB y el límite es ${max} MB.` };
       }
 
-      async function inicializarSelects() {
-        await cargarOpciones('generos', 'generoSelect');
-        await cargarOpciones('ciudades', 'ciudadSelect');
-        await cargarOpciones('epss', 'epsSelect');
-        await cargarOpciones('alimentacion', 'alimentacionSelect');
-        await cargarOpciones('bancos', 'BancoSelect');
-      }
+      if (opts.accept && opts.accept.length) {
+        const name = (file.name || '').toLowerCase();
+        const type = (file.type || '').toLowerCase(); // a veces vacío o octet-stream
+        const ext = name.includes('.') ? '.' + name.split('.').pop() : '';
 
-      // ========= VALIDACIONES / ERRORES =========
-      const MAX_FILE_MB = 20;
-      function bytesToMB(n) { return (n / (1024 * 1024)).toFixed(1); }
+        const ok = opts.accept.some((patRaw) => {
+          const pat = patRaw.toLowerCase().trim();
+          if (pat.endsWith('/*')) {
+            const prefix = pat.slice(0, -1);
+            return type.startsWith(prefix) || (type === 'application/octet-stream' && ext.startsWith(prefix));
+          }
+          if (pat.startsWith('.')) {
+            return ext === pat;
+          }
+          if (pat.includes('/')) {
+            return type === pat || type.startsWith(pat) || (type === 'application/octet-stream' && ext && pat.includes(ext.replace('.', '')));
+          }
+          return false;
+        });
 
-      // Acepta por MIME o por extensión (.pdf), tolera application/octet-stream
-      function validarArchivo(file, etiqueta, opts = {}) {
-        if (!file) return { ok: true };
-
-        const max = opts.maxMB || MAX_FILE_MB;
-        if (file.size > max * 1024 * 1024) {
-          return { ok: false, msg: `El archivo "${etiqueta}" pesa ${bytesToMB(file.size)} MB y el límite es ${max} MB.` };
+        if (!ok) {
+          return { ok: false, msg: `El archivo de "${etiqueta}" no tiene un formato permitido.` };
         }
+      }
+      return { ok: true };
+    }
 
-        if (opts.accept && opts.accept.length) {
-          const name = (file.name || '').toLowerCase();
-          const type = (file.type || '').toLowerCase(); // a veces vacío o octet-stream
-          const ext  = name.includes('.') ? '.' + name.split('.').pop() : '';
+    function explicarError(err) {
+      const msg = (err && (err.message || err.error_description || err.error || String(err))) || 'Error desconocido';
+      const lower = msg.toLowerCase();
+      if (lower.includes('invalid key')) return 'Nombre de archivo inválido (tildes, ñ u otros símbolos).';
+      if (lower.includes('payload') || lower.includes('413')) return 'El archivo es demasiado pesado para subir.';
+      if (lower.includes('permission') || lower.includes('rls') || lower.includes('policy')) return 'Permiso denegado por políticas de seguridad (RLS).';
+      if (lower.includes('bucket') || lower.includes('storage')) return 'No se pudo subir a Storage. Revisa el bucket/políticas.';
+      return msg;
+    }
 
-          const ok = opts.accept.some((patRaw) => {
-            const pat = patRaw.toLowerCase().trim();
-            if (pat.endsWith('/*')) { // image/*
-              const prefix = pat.slice(0, -1);
-              return type.startsWith(prefix);
+    // ========= NOMBRES SEGUROS PARA STORAGE (sanitización) =========
+    function slugifyFilename(name) {
+      const lower = (name || 'archivo').toLowerCase();
+      const noExt = lower.replace(/\.[^.]+$/, '');
+      const ext = (lower.match(/\.([^.]+)$/)?.[0]) || '';
+      let base = noExt.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // quitar acentos
+      base = base.replace(/[^a-z0-9._-]+/g, '_');                         // solo ascii seguro
+      base = base.replace(/_+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80);
+      return (base || 'archivo') + ext;
+    }
+
+    function buildStorageKey(prefix, originalName, doc = '') {
+      const safeName = slugifyFilename(originalName);
+      const docPart = (doc || '').replace(/\D/g, '').slice(0, 20) || 'nd';
+      return `${prefix}/${docPart}/${Date.now()}_${safeName}`;
+    }
+
+    function guessContentType(filename) {
+      const ext = (filename.split('.').pop() || '').toLowerCase();
+      if (ext === 'pdf') return 'application/pdf';
+      if (['jpg', 'jpeg'].includes(ext)) return 'image/jpeg';
+      if (ext === 'png') return 'image/png';
+      if (ext === 'webp') return 'image/webp';
+      return 'application/octet-stream';
+    }
+
+    async function subirArchivo(bucket, archivo, key) {
+      const contentType = archivo.type || guessContentType(key);
+      const { error } = await supabaseClient.storage.from(bucket).upload(key, archivo, { upsert: true, contentType });
+      if (error) throw error;
+      return supabaseClient.storage.from(bucket).getPublicUrl(key).data.publicUrl;
+    }
+
+    // ========= RPC PRECHECK =========
+    async function verificarElegibilidad(supabaseClient, doc) {
+      const DUP_MSG = "Ya llenaste este formulario en el pasado, si quieres modificar algún dato por favor escribe por WhatsApp al 3122826844";
+      const AUTH_MSG = "Hola! Aún no perteneces a nuestra base de datos, si aún no has realizado entrevista puedes realizarla en el siguiente link https://linktr.ee/operadoresarmadillo o escribe al 3122826844";
+
+      const cedula = (doc || "").trim();
+      if (!cedula) return { ok: false, msg: "Debes ingresar una cédula válida." };
+
+      const { data, error } = await supabaseClient.rpc('precheck_persona', { p_doc: cedula });
+      if (error) {
+        console.error('Error en precheck_persona:', error);
+        return { ok: false, msg: "Error validando autorización. Intenta de nuevo." };
+      }
+
+      const autorizado = !!data?.autorizado;
+      const existe = !!data?.existe;
+
+      if (!autorizado) return { ok: false, msg: AUTH_MSG };
+      if (existe) return { ok: false, msg: DUP_MSG };
+
+      return { ok: true, msg: "" };
+    }
+
+    // ========= SUBMIT =========
+    document.addEventListener('DOMContentLoaded', async () => {
+      await inicializarSelects();
+
+      document.getElementById('personalForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const btn = form.querySelector('button[type="submit"]');
+
+        if (btn.disabled) return; // anti-doble click
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Enviando...';
+        btn.setAttribute('aria-busy', 'true');
+
+        try {
+          if (!navigator.onLine) {
+            alert('Sin conexión a internet. Verifica tu red e inténtalo de nuevo.');
+            return;
+          }
+
+          const formData = new FormData(form);
+
+          // 1) Fecha válida y no futura
+          const fechaStr = formData.get('per_fecha_nacimiento');
+          const fechaNacimiento = new Date(fechaStr);
+          if (!fechaStr || isNaN(fechaNacimiento.getTime())) { alert("Debes ingresar una fecha de nacimiento válida."); return; }
+          if (fechaNacimiento > new Date()) { alert("La fecha de nacimiento no puede ser en el futuro."); return; }
+
+          // 2) Documento válido
+          const doc = (formData.get('per_num_doc') || '').trim();
+          if (!/^\d{6,10}$/.test(doc)) { alert('La cédula debe tener entre 6 y 10 dígitos.'); return; }
+
+          // 3) Pre-check
+          const eleg = await verificarElegibilidad(supabaseClient, doc);
+          if (!eleg.ok) { alert(eleg.msg); return; }
+
+          // 4) Validar archivos
+          const filesCfg = [
+            { name: 'per_foto', etiqueta: 'Foto personal', required: true, accept: ['image/*'] },
+            { name: 'per_pdf_cedula', etiqueta: 'Imagen Cédula', required: true, accept: ['.pdf', 'application/pdf', 'image/*'] },
+            { name: 'per_pdf_rut', etiqueta: 'RUT', required: false, accept: ['.pdf', 'application/pdf', 'image/*'] },
+            { name: 'per_pdf_comprobante_banco', etiqueta: 'Certificado de Cuenta', required: true, accept: ['.pdf', 'application/pdf', 'image/*'] },
+            { name: 'per_pdf_hoja_vida', etiqueta: 'Hoja de Vida', required: false, accept: ['.pdf', 'application/pdf', 'image/*'] },
+          ];
+
+          for (const f of filesCfg) {
+            const file = formData.get(f.name);
+            if (f.required && (!file || !file.name)) { alert(`Falta adjuntar: ${f.etiqueta}.`); return; }
+            const v = validarArchivo(file && file.name ? file : null, f.etiqueta, { accept: f.accept });
+            if (!v.ok) { alert(v.msg); return; }
+          }
+
+          // 5) Subir archivos con NOMBRE SEGURO (sin tildes/ñ)
+          const urls = {};
+          for (const f of filesCfg) {
+            const file = formData.get(f.name);
+            if (file && file.name) {
+              const key = buildStorageKey(f.name, file.name, doc);
+              try {
+                urls[f.name] = await subirArchivo('personalfiles', file, key);
+              } catch (err) {
+                console.error('Storage upload error', err);
+                throw new Error(`No se pudo subir "${f.etiqueta}": ${explicarError(err)}`);
+              }
             }
-            if (pat.startsWith('.')) { // .pdf
-              return ext === pat;
+          }
+
+          // 6) Preparar objeto "personal" para RPC
+          const datos = Object.fromEntries(formData.entries());
+
+          // quitar campos que NO van en personal
+          delete datos.dba_banco_id;
+          delete datos.dba_num_cuenta;
+          delete datos.per_foto;
+          delete datos.per_pdf_cedula;
+          delete datos.per_pdf_rut;
+          delete datos.per_pdf_comprobante_banco;
+          delete datos.per_pdf_hoja_vida;
+
+          // normalizar strings
+          for (const k in datos) {
+            if (typeof datos[k] === 'string') {
+              const t = datos[k].trim();
+              datos[k] = t === '' ? null : t;
             }
-            if (pat.includes('/')) { // application/pdf
-              return type === pat || type.startsWith(pat);
+          }
+
+          // defaults obligatorios
+          datos.per_perfilamiento = 1;
+          datos.per_status_personal = 1;
+
+          // IDs → enteros
+          ['per_genero_id', 'per_eps_id', 'per_ciudad_id', 'per_ali_id'].forEach((f) => {
+            if (datos[f] != null) {
+              const n = parseInt(datos[f], 10);
+              datos[f] = Number.isFinite(n) ? n : null;
             }
-            return false;
           });
 
-          if (!ok) {
-            return { ok: false, msg: `El archivo de "${etiqueta}" no tiene un formato permitido.` };
-          }
+          // URLs subidas
+          if (urls.per_foto) datos.per_foto = urls.per_foto;
+          if (urls.per_pdf_cedula) datos.per_pdf_cedula = urls.per_pdf_cedula;
+          if (urls.per_pdf_rut) datos.per_pdf_rut = urls.per_pdf_rut;
+          if (urls.per_pdf_comprobante_banco) datos.per_pdf_comprobante_banco = urls.per_pdf_comprobante_banco;
+          if (urls.per_pdf_hoja_vida) datos.per_pdf_hoja_vida = urls.per_pdf_hoja_vida;
+
+          // 7) Objeto "banco" para RPC
+          const bancoData = {
+            dba_banco_id: (() => {
+              const raw = formData.get('dba_banco_id');
+              if (raw == null || raw === '') return null;
+              const n = parseInt(raw, 10);
+              return Number.isFinite(n) ? n : null;
+            })(),
+            dba_num_cuenta: (formData.get('dba_num_cuenta') || '').trim() || null
+          };
+
+          // 8) RPC transaccional
+          const { error } = await supabaseClient.rpc('insertar_personal_completo', {
+            p_banco: bancoData,
+            p_personal: datos
+          });
+          if (error) { console.error('RPC error →', error); throw new Error(`Error al guardar: ${explicarError(error)}`); }
+
+          alert('✅ Registro guardado correctamente');
+          form.reset();
+
+        } catch (err) {
+          console.error('Submit error', err);
+          alert(`⚠️ No pudimos completar el registro.\n\nDetalle: ${explicarError(err)}`);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = originalText;
+          btn.removeAttribute('aria-busy');
         }
-        return { ok: true };
-      }
-
-      function explicarError(err) {
-        const msg = (err && (err.message || err.error_description || err.error || String(err))) || 'Error desconocido';
-        const lower = msg.toLowerCase();
-        if (lower.includes('invalid key')) return 'Nombre de archivo inválido (tildes, ñ u otros símbolos).';
-        if (lower.includes('payload') || lower.includes('413')) return 'El archivo es demasiado pesado para subir.';
-        if (lower.includes('permission') || lower.includes('rls') || lower.includes('policy')) return 'Permiso denegado por políticas de seguridad (RLS).';
-        if (lower.includes('bucket') || lower.includes('storage')) return 'No se pudo subir a Storage. Revisa el bucket/políticas.';
-        return msg;
-      }
-
-      // ========= NOMBRES SEGUROS PARA STORAGE (sanitización) =========
-      function slugifyFilename(name) {
-        const lower = (name || 'archivo').toLowerCase();
-        const noExt = lower.replace(/\.[^.]+$/,'');
-        const ext = (lower.match(/\.([^.]+)$/)?.[0]) || '';
-        let base = noExt.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // quitar acentos
-        base = base.replace(/[^a-z0-9._-]+/g, '_');                         // solo ascii seguro
-        base = base.replace(/_+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80);
-        return (base || 'archivo') + ext;
-      }
-
-      function buildStorageKey(prefix, originalName, doc='') {
-        const safeName = slugifyFilename(originalName);
-        const docPart  = (doc || '').replace(/\D/g,'').slice(0,20) || 'nd';
-        return `${prefix}/${docPart}/${Date.now()}_${safeName}`;
-      }
-
-      function guessContentType(filename) {
-        const ext = (filename.split('.').pop() || '').toLowerCase();
-        if (ext === 'pdf') return 'application/pdf';
-        if (['jpg','jpeg'].includes(ext)) return 'image/jpeg';
-        if (ext === 'png') return 'image/png';
-        if (ext === 'webp') return 'image/webp';
-        return 'application/octet-stream';
-      }
-
-      async function subirArchivo(bucket, archivo, key) {
-        const contentType = archivo.type || guessContentType(key);
-        const { error } = await supabaseClient.storage.from(bucket).upload(key, archivo, { upsert: true, contentType });
-        if (error) throw error;
-        return supabaseClient.storage.from(bucket).getPublicUrl(key).data.publicUrl;
-      }
-
-      // ========= RPC PRECHECK =========
-      async function verificarElegibilidad(supabaseClient, doc) {
-        const DUP_MSG  = "Ya llenaste este formulario en el pasado, si quieres modificar algún dato por favor escribe por WhatsApp al 3122826844";
-        const AUTH_MSG = "Hola! Aún no perteneces a nuestra base de datos, si aún no has realizado entrevista puedes realizarla en el siguiente link https://linktr.ee/operadoresarmadillo o escribe al 3122826844";
-
-        const cedula = (doc || "").trim();
-        if (!cedula) return { ok: false, msg: "Debes ingresar una cédula válida." };
-
-        const { data, error } = await supabaseClient.rpc('precheck_persona', { p_doc: cedula });
-        if (error) {
-          console.error('Error en precheck_persona:', error);
-          return { ok: false, msg: "Error validando autorización. Intenta de nuevo." };
-        }
-
-        const autorizado = !!data?.autorizado;
-        const existe     = !!data?.existe;
-
-        if (!autorizado) return { ok: false, msg: AUTH_MSG };
-        if (existe)      return { ok: false, msg: DUP_MSG };
-
-        return { ok: true, msg: "" };
-      }
-
-      // ========= SUBMIT =========
-      document.addEventListener('DOMContentLoaded', async () => {
-        await inicializarSelects();
-
-        document.getElementById('personalForm').addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const form = e.target;
-          const btn = form.querySelector('button[type="submit"]');
-
-          if (btn.disabled) return; // anti-doble click
-          const originalText = btn.textContent;
-          btn.disabled = true;
-          btn.textContent = 'Enviando...';
-          btn.setAttribute('aria-busy', 'true');
-
-          try {
-            if (!navigator.onLine) {
-              alert('Sin conexión a internet. Verifica tu red e inténtalo de nuevo.');
-              return;
-            }
-
-            const formData = new FormData(form);
-
-            // 1) Fecha válida y no futura
-            const fechaStr = formData.get('per_fecha_nacimiento');
-            const fechaNacimiento = new Date(fechaStr);
-            if (!fechaStr || isNaN(fechaNacimiento.getTime())) { alert("Debes ingresar una fecha de nacimiento válida."); return; }
-            if (fechaNacimiento > new Date()) { alert("La fecha de nacimiento no puede ser en el futuro."); return; }
-
-            // 2) Documento válido
-            const doc = (formData.get('per_num_doc') || '').trim();
-            if (!/^\d{6,10}$/.test(doc)) { alert('La cédula debe tener entre 6 y 10 dígitos.'); return; }
-
-            // 3) Pre-check
-            const eleg = await verificarElegibilidad(supabaseClient, doc);
-            if (!eleg.ok) { alert(eleg.msg); return; }
-
-            // 4) Validar archivos
-            const filesCfg = [
-              { name: 'per_foto',                  etiqueta: 'Foto personal',               required: true,  accept: ['image/*'] },
-              { name: 'per_pdf_cedula',            etiqueta: 'Imagen Cédula',               required: true,  accept: ['.pdf','application/pdf','image/*'] },
-              { name: 'per_pdf_rut',               etiqueta: 'RUT',                         required: false, accept: ['.pdf','application/pdf','image/*'] },
-              { name: 'per_pdf_comprobante_banco', etiqueta: 'Certificado de Cuenta',       required: true,  accept: ['.pdf','application/pdf','image/*'] },
-              { name: 'per_pdf_hoja_vida',         etiqueta: 'Hoja de Vida',                required: false, accept: ['.pdf','application/pdf','image/*'] },
-            ];
-
-            for (const f of filesCfg) {
-              const file = formData.get(f.name);
-              if (f.required && (!file || !file.name)) { alert(`Falta adjuntar: ${f.etiqueta}.`); return; }
-              const v = validarArchivo(file && file.name ? file : null, f.etiqueta, { accept: f.accept });
-              if (!v.ok) { alert(v.msg); return; }
-            }
-
-            // 5) Subir archivos con NOMBRE SEGURO (sin tildes/ñ)
-            const urls = {};
-            for (const f of filesCfg) {
-              const file = formData.get(f.name);
-              if (file && file.name) {
-                const key = buildStorageKey(f.name, file.name, doc);
-                try {
-                  urls[f.name] = await subirArchivo('personalfiles', file, key);
-                } catch (err) {
-                  console.error('Storage upload error', err);
-                  throw new Error(`No se pudo subir "${f.etiqueta}": ${explicarError(err)}`);
-                }
-              }
-            }
-
-            // 6) Preparar objeto "personal" para RPC
-            const datos = Object.fromEntries(formData.entries());
-
-            // quitar campos que NO van en personal
-            delete datos.dba_banco_id;
-            delete datos.dba_num_cuenta;
-            delete datos.per_foto;
-            delete datos.per_pdf_cedula;
-            delete datos.per_pdf_rut;
-            delete datos.per_pdf_comprobante_banco;
-            delete datos.per_pdf_hoja_vida;
-
-            // normalizar strings
-            for (const k in datos) {
-              if (typeof datos[k] === 'string') {
-                const t = datos[k].trim();
-                datos[k] = t === '' ? null : t;
-              }
-            }
-
-            // defaults obligatorios
-            datos.per_perfilamiento   = 1;
-            datos.per_status_personal = 1;
-
-            // IDs → enteros
-            ['per_genero_id','per_eps_id','per_ciudad_id','per_ali_id'].forEach((f) => {
-              if (datos[f] != null) {
-                const n = parseInt(datos[f], 10);
-                datos[f] = Number.isFinite(n) ? n : null;
-              }
-            });
-
-            // URLs subidas
-            if (urls.per_foto) datos.per_foto = urls.per_foto;
-            if (urls.per_pdf_cedula) datos.per_pdf_cedula = urls.per_pdf_cedula;
-            if (urls.per_pdf_rut) datos.per_pdf_rut = urls.per_pdf_rut;
-            if (urls.per_pdf_comprobante_banco) datos.per_pdf_comprobante_banco = urls.per_pdf_comprobante_banco;
-            if (urls.per_pdf_hoja_vida) datos.per_pdf_hoja_vida = urls.per_pdf_hoja_vida;
-
-            // 7) Objeto "banco" para RPC
-            const bancoData = {
-              dba_banco_id: (() => {
-                const raw = formData.get('dba_banco_id');
-                if (raw == null || raw === '') return null;
-                const n = parseInt(raw, 10);
-                return Number.isFinite(n) ? n : null;
-              })(),
-              dba_num_cuenta: (formData.get('dba_num_cuenta') || '').trim() || null
-            };
-
-            // 8) RPC transaccional
-            const { error } = await supabaseClient.rpc('insertar_personal_completo', {
-              p_banco: bancoData,
-              p_personal: datos
-            });
-            if (error) { console.error('RPC error →', error); throw new Error(`Error al guardar: ${explicarError(error)}`); }
-
-            alert('✅ Registro guardado correctamente');
-            form.reset();
-
-          } catch (err) {
-            console.error('Submit error', err);
-            alert(`⚠️ No pudimos completar el registro.\n\nDetalle: ${explicarError(err)}`);
-          } finally {
-            btn.disabled = false;
-            btn.textContent = originalText;
-            btn.removeAttribute('aria-busy');
-          }
-        });
       });
+    });
 
-      // ========= DOM helpers: SOLO NÚMEROS =========
-      ;(() => {
-        function getMax(el) {
-          const n = parseInt(el.getAttribute('data-maxlength'), 10);
-          return Number.isFinite(n) ? n : 9999;
-        }
-        const controlKeys = new Set([
-          'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
-          'ArrowLeft', 'ArrowRight', 'Home', 'End'
-        ]);
-        document.addEventListener('keydown', (e) => {
-          const el = e.target;
-          if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
-          const k = e.key;
-          const modCombo = (e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(k.toLowerCase());
-          if (controlKeys.has(k) || modCombo) return;
-          const max = getMax(el);
-          if (!/^\d$/.test(k) || el.value.length >= max) e.preventDefault();
-        });
-        document.addEventListener('paste', (e) => {
-          const el = e.target;
-          if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
-          const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
-          const digits = raw.replace(/\D/g, '');
-          const max = getMax(el);
-          const space = max - el.value.length;
-          e.preventDefault();
-          if (space > 0 && digits) el.value += digits.slice(0, space);
-        });
-        document.addEventListener('input', (e) => {
-          const el = e.target;
-          if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
-          const max = getMax(el);
-          const cleaned = el.value.replace(/\D/g, '').slice(0, max);
-          if (el.value !== cleaned) el.value = cleaned;
-        });
-      })();
+    // ========= DOM helpers: SOLO NÚMEROS =========
+    ; (() => {
+      function getMax(el) {
+        const n = parseInt(el.getAttribute('data-maxlength'), 10);
+        return Number.isFinite(n) ? n : 9999;
+      }
+      const controlKeys = new Set([
+        'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+        'ArrowLeft', 'ArrowRight', 'Home', 'End'
+      ]);
+      document.addEventListener('keydown', (e) => {
+        const el = e.target;
+        if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
+        const k = e.key;
+        const modCombo = (e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(k.toLowerCase());
+        if (controlKeys.has(k) || modCombo) return;
+        const max = getMax(el);
+        if (!/^\d$/.test(k) || el.value.length >= max) e.preventDefault();
+      });
+      document.addEventListener('paste', (e) => {
+        const el = e.target;
+        if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
+        const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
+        const digits = raw.replace(/\D/g, '');
+        const max = getMax(el);
+        const space = max - el.value.length;
+        e.preventDefault();
+        if (space > 0 && digits) el.value += digits.slice(0, space);
+      });
+      document.addEventListener('input', (e) => {
+        const el = e.target;
+        if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
+        const max = getMax(el);
+        const cleaned = el.value.replace(/\D/g, '').slice(0, max);
+        if (el.value !== cleaned) el.value = cleaned;
+      });
+    })();
 
-      // ========= DOM helpers: SOLO LETRAS =========
-      ;(() => {
-        const allowed = /[A-Za-zÁÉÍÓÚÜáéíóúüÑñ\s'-]/g;
-        function maxLen(el) {
-          const n = parseInt(el.dataset.maxlength || el.maxLength || '100', 10);
-          return Number.isFinite(n) ? n : 100;
-        }
-        document.addEventListener('input', (e) => {
-          const el = e.target;
-          if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
-          const m = maxLen(el);
-          const cleaned = (el.value.match(allowed) || []).join('').slice(0, m);
-          if (el.value !== cleaned) el.value = cleaned;
-        });
-        document.addEventListener('paste', (e) => {
-          const el = e.target;
-          if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
-          const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
-          const m = maxLen(el);
-          const cleaned = (raw.match(allowed) || []).join('');
-          const space = m - el.value.length;
-          e.preventDefault();
-          if (space > 0 && cleaned) el.value += cleaned.slice(0, space);
-        });
-      })();
-    </script>
+    // ========= DOM helpers: SOLO LETRAS =========
+    ; (() => {
+      const allowed = /[A-Za-zÁÉÍÓÚÜáéíóúüÑñ\s'-]/g;
+      function maxLen(el) {
+        const n = parseInt(el.dataset.maxlength || el.maxLength || '100', 10);
+        return Number.isFinite(n) ? n : 100;
+      }
+      document.addEventListener('input', (e) => {
+        const el = e.target;
+        if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
+        const m = maxLen(el);
+        const cleaned = (el.value.match(allowed) || []).join('').slice(0, m);
+        if (el.value !== cleaned) el.value = cleaned;
+      });
+      document.addEventListener('paste', (e) => {
+        const el = e.target;
+        if (!(el instanceof HTMLInputElement) || !el.classList.contains('solo_letras')) return;
+        const raw = (e.clipboardData || window.clipboardData).getData('text') || '';
+        const m = maxLen(el);
+        const cleaned = (raw.match(allowed) || []).join('');
+        const space = m - el.value.length;
+        e.preventDefault();
+        if (space > 0 && cleaned) el.value += cleaned.slice(0, space);
+      });
+    })();
+  </script>
 
 </body>
+
 </html>
