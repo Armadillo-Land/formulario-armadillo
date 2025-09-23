@@ -519,7 +519,7 @@
           const { error } = await supabaseClient.rpc('insertar_personal_completo_v2', {
             p_banco: bancoData,
             p_personal: datos,
-            p_perf_ids: perfIds
+            //p_perf_ids: perfIds
           });
           if (error) { console.error('RPC error →', error); throw new Error(`Error al guardar: ${explicarError(error)}`); }
 
