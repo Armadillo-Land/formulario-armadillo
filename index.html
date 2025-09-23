@@ -58,7 +58,7 @@
   <small>Solo pueden enviar el formulario los usuarios autorizados</small>
 
   <form id="personalForm">
-    <!-- Status por defecto (también se forzará en JS) -->
+    <!-- Status por defecto -->
     <input type="hidden" name="per_status_personal" value="1">
 
     <!-- Archivos -->
@@ -89,7 +89,6 @@
     </label>
 
     <label>Cédula*
-      <!-- si en tu BD subiste a varchar(20), cambia maxlength a 20 -->
       <input type="text" name="per_num_doc" maxlength="10" inputmode="numeric" pattern="\d{6,10}" class="digits-only"
         required>
     </label>
@@ -224,7 +223,6 @@
     </label>
 
     <label>Teléfono contacto emergencia*
-      <!-- si tu BD tiene varchar(10), cambia a maxlength=10 -->
       <input type="text" name="per_telefono_contacto_emergencia" maxlength="10" inputmode="numeric" class="digits-only"
         required>
     </label>
@@ -254,6 +252,7 @@
 
     <button type="submit">Registrar</button>
   </form>
+
   <script>
     // ========= CONFIG =========
     const SUPABASE_URL = 'https://mjtrmkftgeebbrkqtdou.supabase.co';
@@ -280,50 +279,55 @@
       data.forEach(r => sel.innerHTML += `<option value="${r[cfg.id]}">${r[cfg.texto]}</option>`);
     }
 
+    // ID de "Para Todo" (perfilamiento por defecto)
+    let PARA_TODO_ID = null;
+    async function cargarParaTodoId() {
+      const { data, error } = await supabaseClient
+        .from('perfilamiento')
+        .select('perf_id')
+        .ilike('perf_nombre_perfil', 'Para Todo')
+        .limit(1)
+        .maybeSingle();
+      if (error) console.error('Error buscando "Para Todo":', error);
+      PARA_TODO_ID = data?.perf_id || null;
+    }
+
     async function inicializarSelects() {
       await cargarOpciones('generos', 'generoSelect');
       await cargarOpciones('ciudades', 'ciudadSelect');
       await cargarOpciones('epss', 'epsSelect');
       await cargarOpciones('alimentacion', 'alimentacionSelect');
       await cargarOpciones('bancos', 'BancoSelect');
+      await cargarParaTodoId(); // 👈 asegura el ID por defecto
     }
 
     // ========= VALIDACIONES / ERRORES =========
     const MAX_FILE_MB = 20;
     function bytesToMB(n) { return (n / (1024 * 1024)).toFixed(1); }
 
-    // Acepta por MIME o por extensión (.pdf), tolera application/octet-stream
     function validarArchivo(file, etiqueta, opts = {}) {
       if (!file) return { ok: true };
-
       const max = opts.maxMB || MAX_FILE_MB;
       if (file.size > max * 1024 * 1024) {
         return { ok: false, msg: `El archivo "${etiqueta}" pesa ${bytesToMB(file.size)} MB y el límite es ${max} MB.` };
       }
-
       if (opts.accept && opts.accept.length) {
         const name = (file.name || '').toLowerCase();
-        const type = (file.type || '').toLowerCase(); // a veces vacío o octet-stream
+        const type = (file.type || '').toLowerCase();
         const ext = name.includes('.') ? '.' + name.split('.').pop() : '';
-
         const ok = opts.accept.some((patRaw) => {
           const pat = patRaw.toLowerCase().trim();
           if (pat.endsWith('/*')) {
             const prefix = pat.slice(0, -1);
             return type.startsWith(prefix) || (type === 'application/octet-stream' && ext.startsWith(prefix));
           }
-          if (pat.startsWith('.')) {
-            return ext === pat;
-          }
+          if (pat.startsWith('.')) return ext === pat;
           if (pat.includes('/')) {
             return type === pat || type.startsWith(pat) || (type === 'application/octet-stream' && ext && pat.includes(ext.replace('.', '')));
           }
           return false;
         });
-
-        if (!ok) {
-          return { ok: false, msg: `El archivo de "${etiqueta}" no tiene un formato permitido.` };
-        }
+        if (!ok) return { ok: false, msg: `El archivo de "${etiqueta}" no tiene un formato permitido.` };
       }
       return { ok: true };
     }
@@ -338,13 +342,13 @@
       return msg;
     }
 
-    // ========= NOMBRES SEGUROS PARA STORAGE (sanitización) =========
+    // ========= Storage helpers =========
     function slugifyFilename(name) {
       const lower = (name || 'archivo').toLowerCase();
       const noExt = lower.replace(/\.[^.]+$/, '');
       const ext = (lower.match(/\.([^.]+)$/)?.[0]) || '';
-      let base = noExt.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // quitar acentos
-      base = base.replace(/[^a-z0-9._-]+/g, '_');                         // solo ascii seguro
+      let base = noExt.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      base = base.replace(/[^a-z0-9._-]+/g, '_');
       base = base.replace(/_+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80);
       return (base || 'archivo') + ext;
     }
@@ -386,10 +390,9 @@
       }
 
       const autorizado = !!data?.autorizado;
-      const existe = !!data?.existe;
-
+      the_existe = !!data?.existe;
       if (!autorizado) return { ok: false, msg: AUTH_MSG };
-      if (existe) return { ok: false, msg: DUP_MSG };
+      if (the_existe) return { ok: false, msg: DUP_MSG };
 
       return { ok: true, msg: "" };
     }
@@ -402,18 +405,15 @@
         e.preventDefault();
         const form = e.target;
         const btn = form.querySelector('button[type="submit"]');
+        if (btn.disabled) return;
 
-        if (btn.disabled) return; // anti-doble click
         const originalText = btn.textContent;
         btn.disabled = true;
         btn.textContent = 'Enviando...';
         btn.setAttribute('aria-busy', 'true');
 
         try {
-          if (!navigator.onLine) {
-            alert('Sin conexión a internet. Verifica tu red e inténtalo de nuevo.');
-            return;
-          }
+          if (!navigator.onLine) { alert('Sin conexión a internet. Verifica tu red e inténtalo de nuevo.'); return; }
 
           const formData = new FormData(form);
 
@@ -439,7 +439,6 @@
             { name: 'per_pdf_comprobante_banco', etiqueta: 'Certificado de Cuenta', required: true, accept: ['.pdf', 'application/pdf', 'image/*'] },
             { name: 'per_pdf_hoja_vida', etiqueta: 'Hoja de Vida', required: false, accept: ['.pdf', 'application/pdf', 'image/*'] },
           ];
-
           for (const f of filesCfg) {
             const file = formData.get(f.name);
             if (f.required && (!file || !file.name)) { alert(`Falta adjuntar: ${f.etiqueta}.`); return; }
@@ -447,7 +446,7 @@
             if (!v.ok) { alert(v.msg); return; }
           }
 
-          // 5) Subir archivos con NOMBRE SEGURO (sin tildes/ñ)
+          // 5) Subir archivos (nombres seguros)
           const urls = {};
           for (const f of filesCfg) {
             const file = formData.get(f.name);
@@ -483,7 +482,7 @@
           }
 
           // defaults obligatorios
-          datos.per_perfilamiento = 1;
+          // ❌ ya no se usa: datos.per_perfilamiento = 1;
           datos.per_status_personal = 1;
 
           // IDs → enteros
@@ -512,10 +511,15 @@
             dba_num_cuenta: (formData.get('dba_num_cuenta') || '').trim() || null
           };
 
-          // 8) RPC transaccional
-          const { error } = await supabaseClient.rpc('insertar_personal_completo', {
+          // 8) Perfiles: Forzar "Para Todo"
+          if (!PARA_TODO_ID) { alert('No se encontró el perfilamiento "Para Todo". Avísanos para activarlo.'); return; }
+          const perfIds = [PARA_TODO_ID];
+
+          // 9) RPC v2 (inserta personal + relación en tabla puente)
+          const { error } = await supabaseClient.rpc('insertar_personal_completo_v2', {
             p_banco: bancoData,
-            p_personal: datos
+            p_personal: datos,
+            p_perf_ids: perfIds
           });
           if (error) { console.error('RPC error →', error); throw new Error(`Error al guardar: ${explicarError(error)}`); }
 
@@ -539,10 +543,7 @@
         const n = parseInt(el.getAttribute('data-maxlength'), 10);
         return Number.isFinite(n) ? n : 9999;
       }
-      const controlKeys = new Set([
-        'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
-        'ArrowLeft', 'ArrowRight', 'Home', 'End'
-      ]);
+      const controlKeys = new Set(['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
       document.addEventListener('keydown', (e) => {
         const el = e.target;
         if (!(el instanceof HTMLInputElement) || !el.classList.contains('digits-only')) return;
