@@ -377,7 +377,7 @@
 
     // ========= RPC PRECHECK =========
     async function verificarElegibilidad(supabaseClient, doc) {
-      const DUP_MSG = "Ya llenaste este formulario en el pasado, si quieres modificar algún dato por favor escribe por WhatsApp al 3122826844";
+      const DUP_MSG  = "Ya llenaste este formulario en el pasado, si quieres modificar algún dato por favor escribe por WhatsApp al 3122826844";
       const AUTH_MSG = "Hola! Aún no perteneces a nuestra base de datos, si aún no has realizado entrevista puedes realizarla en el siguiente link https://linktr.ee/operadoresarmadillo o escribe al 3122826844";
 
       const cedula = (doc || "").trim();
@@ -389,13 +389,20 @@
         return { ok: false, msg: "Error validando autorización. Intenta de nuevo." };
       }
 
-      const autorizado = !!data?.autorizado;
-      the_existe = !!data?.existe;
-      if (!autorizado) return { ok: false, msg: AUTH_MSG };
-      if (the_existe) return { ok: false, msg: DUP_MSG };
+      // Asegura booleans y no globales
+      const existe = !!data?.existe;       // ¿Ya está en personal?
+      const autorizado = !!data?.autorizado; // ¿Está en autorizados?
 
+      // 🔴 1) PRIORIDAD: si ya existe en personal, bloquear con mensaje de duplicado
+      if (existe) return { ok: false, msg: DUP_MSG };
+
+      // 🟡 2) Si no existe en personal, pero NO está autorizado, bloquear con mensaje de autorización
+      if (!autorizado) return { ok: false, msg: AUTH_MSG };
+
+      // 🟢 3) Caso permitido: no existe en personal y sí está autorizado
       return { ok: true, msg: "" };
     }
+
 
     // ========= SUBMIT =========
     document.addEventListener('DOMContentLoaded', async () => {
